@@ -31,9 +31,11 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
     if (status.isGranted) {
       _getCurrentLocation();
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Location permission denied')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Location permission denied')),
+        );
+      }
     }
   }
 
@@ -51,9 +53,11 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
       });
     } catch (e) {
       setState(() => _locationLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to get location: $e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to get location: $e')),
+        );
+      }
     }
   }
 

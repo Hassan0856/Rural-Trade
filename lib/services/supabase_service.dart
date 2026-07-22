@@ -18,13 +18,13 @@ class SupabaseService {
     
     await Supabase.initialize(
       url: supabaseUrl,
-      anonKey: supabaseAnonKey,
+      publishableKey: supabaseAnonKey,
     );
   }
 
   static SupabaseClient get client => Supabase.instance.client;
-  static AuthRepo get auth => client.auth;
-  static StorageClient get storage => client.storage;
+  static GoTrueClient get auth => client.auth;
+  static SupabaseStorageClient get storage => client.storage;
 
   static Future<String> uploadPhoto(File photoFile, String fileName) async {
     final userId = auth.currentUser!.id;

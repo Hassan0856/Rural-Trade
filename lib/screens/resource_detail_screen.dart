@@ -261,7 +261,7 @@ class _ResourceDetailScreenState extends State<ResourceDetailScreen> {
                                           _ownerData!['trust_score'] as int?,
                                           _ownerData!['badge_level'] as String?,
                                         ),
-                                      ).withOpacity(0.2),
+                                      ).withValues(alpha: 0.2),
                                       borderRadius: BorderRadius.circular(12),
                                       border: Border.all(
                                         color: SupabaseService.getVerificationBadgeColor(

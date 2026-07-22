@@ -84,12 +84,12 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   Future<bool> _checkUserProfile(String userId) async {
     try {
-      final response = await SupabaseService.client
+      await SupabaseService.client
           .from('users')
           .select()
           .eq('id', userId)
           .single();
-      return response != null;
+      return true;
     } catch (e) {
       return false;
     }

@@ -462,7 +462,7 @@ class _ListingCard extends StatelessWidget {
                             ownerData['trust_score'] as int?,
                             ownerData['badge_level'] as String?,
                           ),
-                        ).withOpacity(0.15),
+                        ).withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(
                           color: SupabaseService.getVerificationBadgeColor(

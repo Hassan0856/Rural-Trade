@@ -41,21 +41,28 @@ class MyApp extends StatelessWidget {
   }
 }
 
-class AuthWrapper extends ConsumerWidget {
+class AuthWrapper extends ConsumerStatefulWidget {
   const AuthWrapper({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AuthWrapper> createState() => _AuthWrapperState();
+}
+
+class _AuthWrapperState extends ConsumerState<AuthWrapper> {
+  @override
+  Widget build(BuildContext context) {
     final session = SupabaseService.client.auth.currentSession;
 
     if (session != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) async {
         final userId = session.user.id;
         final hasProfile = await _checkUserProfile(userId);
-        if (hasProfile) {
-          Navigator.pushReplacementNamed(context, '/home');
-        } else {
-          Navigator.pushReplacementNamed(context, '/profile-setup');
+        if (mounted) {
+          if (hasProfile) {
+            Navigator.pushReplacementNamed(context, '/home');
+          } else {
+            Navigator.pushReplacementNamed(context, '/profile-setup');
+          }
         }
       });
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
@@ -66,12 +73,12 @@ class AuthWrapper extends ConsumerWidget {
 
   Future<bool> _checkUserProfile(String userId) async {
     try {
-      final response = await SupabaseService.client
+      await SupabaseService.client
           .from('users')
           .select()
           .eq('id', userId)
           .single();
-      return response != null;
+      return true;
     } catch (e) {
       return false;
     }
