@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'services/supabase_service.dart';
 import 'providers/auth_provider.dart';
 import 'screens/auth/phone_screen.dart';
@@ -8,6 +7,7 @@ import 'screens/auth/otp_screen.dart';
 import 'screens/auth/profile_setup_screen.dart';
 import 'screens/listings/add_listing_screen.dart';
 import 'screens/listings/listing_success_screen.dart';
+import 'screens/browse_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -33,6 +33,7 @@ class MyApp extends StatelessWidget {
         '/otp': (context) => const OtpScreen(),
         '/profile-setup': (context) => const ProfileSetupScreen(),
         '/home': (context) => const HomeScreen(),
+        '/browse': (context) => const BrowseScreen(),
         '/add-listing': (context) => const AddListingScreen(),
         '/listing-success': (context) => const ListingSuccessScreen(),
       },
