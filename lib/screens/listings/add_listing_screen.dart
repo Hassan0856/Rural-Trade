@@ -5,6 +5,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'dart:io';
 import '../../providers/listing_provider.dart';
+import '../../widgets/voice_input_widget.dart';
 
 class AddListingScreen extends ConsumerStatefulWidget {
   const AddListingScreen({super.key});
@@ -153,6 +154,12 @@ class _AddListingScreenState extends ConsumerState<AddListingScreen> {
                     return 'Please enter a description';
                   }
                   return null;
+                },
+              ),
+              const SizedBox(height: 8),
+              VoiceInputWidget(
+                onTextReceived: (text) {
+                  _descriptionController.text = text;
                 },
               ),
               const SizedBox(height: 16),
