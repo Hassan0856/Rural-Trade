@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import '../services/supabase_service.dart';
 import '../providers/user_listings_provider.dart';
 import '../providers/auth_provider.dart';
 
@@ -165,7 +165,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       ),
       body: userId == null
           ? const Center(child: CircularProgressIndicator())
-          : FutureBuilder<Map<String, dynamic>>(
+          : FutureBuilder<Map<String, dynamic>?>(
               future: _fetchUserProfile(userId),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
@@ -344,7 +344,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           .select()
           .eq('id', userId)
           .single();
-      return response as Map<String, dynamic>;
+      return response;
     } catch (e) {
       return null;
     }

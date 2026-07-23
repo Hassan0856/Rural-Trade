@@ -9,6 +9,8 @@ import 'screens/auth/otp_screen.dart';
 import 'screens/auth/profile_setup_screen.dart';
 import 'screens/listings/add_listing_screen.dart';
 import 'screens/listings/listing_success_screen.dart';
+import 'screens/listings/browse_screen.dart';
+import 'screens/listings/resource_detail_screen.dart';
 import 'screens/onboarding_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/impact_stats_screen.dart';
@@ -42,6 +44,14 @@ class MyApp extends StatelessWidget {
         '/profile': (context) => const ProfileScreen(),
         '/impact-stats': (context) => const ImpactStatsScreen(),
         '/my-trades': (context) => const MyTradesScreen(),
+        '/browse': (context) => const BrowseScreen(),
+        '/resource-detail': (context) {
+          final args = ModalRoute.of(context)?.settings.arguments;
+          if (args is Map<String, dynamic>) {
+            return ResourceDetailScreen(listing: args);
+          }
+          return const ResourceDetailScreen(listing: {});
+        },
         '/add-listing': (context) => const AddListingScreen(),
         '/listing-success': (context) => const ListingSuccessScreen(),
       },

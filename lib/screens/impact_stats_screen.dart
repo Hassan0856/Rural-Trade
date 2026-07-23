@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
 import '../providers/impact_stats_provider.dart';
@@ -94,7 +93,7 @@ Together, we're building stronger village communities!
             
             if (statsState.status == ImpactStatsStatus.loading)
               const Center(child: CircularProgressIndicator())
-            else if (statsState.status == ImpactStatsState.error)
+            else if (statsState.status == ImpactStatsStatus.error)
               Card(
                 child: Padding(
                   padding: const EdgeInsets.all(32),
@@ -189,7 +188,7 @@ class _ImpactCard extends StatelessWidget {
               Text(
                 'Community Impact Report',
                 style: TextStyle(
-                  color: Colors.white.shade200,
+                  color: Colors.white.withOpacity(0.8),
                   fontSize: 14,
                 ),
               ),
@@ -255,7 +254,7 @@ class _StatRow extends StatelessWidget {
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: Colors.white.shade20,
+            color: Colors.white.withOpacity(0.2),
             borderRadius: BorderRadius.circular(12),
           ),
           child: Icon(icon, color: Colors.white, size: 28),
@@ -268,7 +267,7 @@ class _StatRow extends StatelessWidget {
               Text(
                 label,
                 style: TextStyle(
-                  color: Colors.white.shade200,
+                  color: Colors.white.withOpacity(0.8),
                   fontSize: 12,
                 ),
               ),
