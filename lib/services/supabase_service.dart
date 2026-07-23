@@ -1,21 +1,26 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'dart:io';
 
 class SupabaseService {
-  static const String _supabaseUrl = 'YOUR_SUPABASE_URL';
-  static const String _supabaseAnonKey = 'YOUR_SUPABASE_ANON_KEY';
+  static late final String _supabaseUrl;
+  static late final String _supabaseAnonKey;
   static const String _storageBucket = 'listing-photos';
 
   static Future<void> initialize() async {
-    await Supabase.initialize(
-      url: _supabaseUrl,
-      anonKey: _supabaseAnonKey,
-    );
+    await dotenv.load(fileName: '.env');
+    _supabaseUrl = dotenv.env['SUPABASE_URL'] ?? 'YOUR_SUPABASE_URL';
+    _supabaseAnonKey = dotenv.env['SUPABASE_ANON_KEY'] ?? 'YOUR_SUPABASE_ANON_KEY';
+    
+  await Supabase.initialize(
+  url: _supabaseUrl,
+  publishableKey: _supabaseAnonKey,
+);
   }
 
   static SupabaseClient get client => Supabase.instance.client;
-  static AuthRepo get auth => client.auth;
-  static StorageClient get storage => client.storage;
+  static GoTrueClient get auth => client.auth;
+  static SupabaseStorageClient get storage => client.storage;
 
   static Future<String> uploadPhoto(File photoFile, String fileName) async {
     final userId = auth.currentUser!.id;

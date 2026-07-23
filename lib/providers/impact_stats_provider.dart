@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/supabase_service.dart';
 
 enum ImpactStatsStatus {
@@ -52,17 +53,17 @@ class ImpactStatsNotifier extends StateNotifier<ImpactStatsState> {
       // Fetch total listings count
       final listingsResponse = await SupabaseService.client
           .from('listings')
-          .select('id', count: CountOption.exact);
+          .select('id');
       
-      final totalListings = listingsResponse.count ?? 0;
+      final totalListings = listingsResponse.length;
 
       // Fetch total fulfilled requests count
       final requestsResponse = await SupabaseService.client
           .from('requests')
-          .select('id', count: CountOption.exact)
+          .select('id')
           .eq('status', 'completed');
       
-      final totalRequestsFulfilled = requestsResponse.count ?? 0;
+      final totalRequestsFulfilled = requestsResponse.length;
 
       // Calculate idle hours saved
       final idleHoursSaved = totalRequestsFulfilled * _hoursSavedPerExchange;
