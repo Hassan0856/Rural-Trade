@@ -1,0 +1,33 @@
+# codemagic.yaml
+# Place this at the repo root (same level as pubspec.yaml).
+#
+# Builds a release APK on Codemagic's cloud machines — no local Android
+# SDK needed. .env is git-ignored, so this writes it from Codemagic's
+# secure environment variables before the build runs (see setup steps).
+#
+# GEMINI_API_KEY is deliberately NOT here — it lives only as a Supabase
+# Edge Function secret and is never bundled into the client, by design.
+
+workflows:
+  android-apk:
+    name: Village Exchange - Android APK
+    max_build_duration: 30
+    environment:
+      flutter: stable
+      groups:
+        - village_exchange_secrets   # create this group in the Codemagic dashboard
+    scripts:
+      - name: Write .env from secure variables
+        script: |
+          cat > .env << EOF
+          SUPABASE_URL=$SUPABASE_URL
+          SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY
+          OPENWEATHER_API_KEY=$OPENWEATHER_API_KEY
+          EOF
+      - name: Get Flutter packages
+        script: flutter pub get
+      - name: Build release APK
+        script: flutter build apk --release
+    artifacts:
+      - build/app/outputs/flutter-apk/app-release.apk
+      
