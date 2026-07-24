@@ -492,6 +492,7 @@ class _BrowseScreenState extends State<BrowseScreen> {
     
     return Card(
       elevation: 3,
+      clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
       ),
@@ -545,111 +546,123 @@ class _BrowseScreenState extends State<BrowseScreen> {
             Expanded(
               flex: 4,
               child: Padding(
-                padding: const EdgeInsets.all(10),
+                padding: const EdgeInsets.all(8),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Title
-                    Text(
-                      listing['title'] ?? 'Untitled',
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold,
-                        color: _earthDarkGreen,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 4),
-
-                    // Type
-                    Row(
-                      children: [
-                        Icon(
-                          _getTypeIcon(typeKey),
-                          size: 14,
-                          color: _earthBrown,
-                        ),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            typeDisplay,
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: _earthBrown,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-
-                    // Distance
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.location_on,
-                          size: 14,
-                          color: _earthGreen,
-                        ),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            listing['distance'] ?? 'Unknown',
-                            style: const TextStyle(
-                              fontSize: 11,
-                              color: _earthGreen,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-
-                    // Owner Rating
-                    if (listing['ownerReviewCount'] != null && listing['ownerReviewCount'] > 0)
-                      Row(
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Icon(
-                            Icons.star,
-                            size: 12,
-                            color: Colors.amber,
-                          ),
-                          const SizedBox(width: 2),
                           Text(
-                            '${listing['ownerRating']?.toStringAsFixed(1) ?? '0.0'}',
+                            listing['title'] ?? 'Untitled',
                             style: const TextStyle(
-                              fontSize: 10,
-                              color: Colors.amber,
+                              fontSize: 13,
                               fontWeight: FontWeight.bold,
+                              color: _earthDarkGreen,
                             ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                          Text(
-                            ' (${listing['ownerReviewCount']})',
-                            style: TextStyle(
-                              fontSize: 10,
-                              color: _earthBrown.withValues(alpha: 0.7),
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              Icon(
+                                _getTypeIcon(typeKey),
+                                size: 14,
+                                color: _earthBrown,
+                              ),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                child: Text(
+                                  typeDisplay,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: _earthBrown,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.location_on,
+                                size: 14,
+                                color: _earthGreen,
+                              ),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                child: Text(
+                                  listing['distance'] ?? 'Unknown',
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    color: _earthGreen,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                          if (listing['ownerReviewCount'] != null &&
+                              listing['ownerReviewCount'] > 0) ...[
+                            const SizedBox(height: 4),
+                            Row(
+                              children: [
+                                const Icon(
+                                  Icons.star,
+                                  size: 12,
+                                  color: Colors.amber,
+                                ),
+                                const SizedBox(width: 2),
+                                Flexible(
+                                  child: Text(
+                                    '${listing['ownerRating']?.toStringAsFixed(1) ?? '0.0'}',
+                                    style: const TextStyle(
+                                      fontSize: 10,
+                                      color: Colors.amber,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                Flexible(
+                                  child: Text(
+                                    ' (${listing['ownerReviewCount']})',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      color: _earthBrown.withValues(alpha: 0.7),
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
                             ),
-                          ),
+                          ],
                         ],
                       ),
-                    const Spacer(),
-
-                    // Verification Badge
+                    ),
                     Container(
+                      width: double.infinity,
                       padding: const EdgeInsets.symmetric(
                         horizontal: 6,
                         vertical: 2,
                       ),
                       decoration: BoxDecoration(
-                        color: (listing['badgeColor'] as Color?)?.withValues(alpha: 0.15) ?? Colors.orange.withValues(alpha: 0.15),
+                        color: (listing['badgeColor'] as Color?)
+                                ?.withValues(alpha: 0.15) ??
+                            Colors.orange.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(
-                          color: listing['badgeColor'] as Color? ?? Colors.orange,
+                          color: listing['badgeColor'] as Color? ??
+                              Colors.orange,
                           width: 0.5,
                         ),
                       ),
@@ -658,14 +671,16 @@ class _BrowseScreenState extends State<BrowseScreen> {
                         style: TextStyle(
                           fontSize: 9,
                           fontWeight: FontWeight.bold,
-                          color: listing['badgeColor'] as Color? ?? Colors.orange,
+                          color: listing['badgeColor'] as Color? ??
+                              Colors.orange,
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     const SizedBox(height: 4),
-
-                    // Status Badge
                     Container(
+                      width: double.infinity,
                       padding: const EdgeInsets.symmetric(
                         horizontal: 8,
                         vertical: 4,
@@ -687,6 +702,9 @@ class _BrowseScreenState extends State<BrowseScreen> {
                           fontWeight: FontWeight.bold,
                           color: isAvailable ? _earthGreen : Colors.orange,
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
                       ),
                     ),
                   ],
@@ -737,6 +755,8 @@ class _BrowseScreenState extends State<BrowseScreen> {
               fontSize: 12,
               color: _earthBrown.withValues(alpha: 0.7),
             ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),

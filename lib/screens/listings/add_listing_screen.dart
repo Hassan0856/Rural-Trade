@@ -52,20 +52,6 @@ class _AddListingScreenState extends ConsumerState<AddListingScreen> {
     super.dispose();
   }
 
-  String? _getLanguageLocale(String? languageCode) {
-    if (languageCode == null) return null;
-    switch (languageCode) {
-      case 'en':
-        return 'en-US';
-      case 'hi':
-        return 'hi-IN';
-      case 'te':
-        return 'te-IN';
-      default:
-        return null;
-    }
-  }
-
   Future<void> _pickImage() async {
     try {
       final XFile? image = await _imagePicker.pickImage(
@@ -203,7 +189,7 @@ class _AddListingScreenState extends ConsumerState<AddListingScreen> {
                 onTextReceived: (text) {
                   _descriptionController.text = text;
                 },
-                initialLanguage: _getLanguageLocale(_savedLanguageCode),
+                initialLanguage: _savedLanguageCode ?? 'en',
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(

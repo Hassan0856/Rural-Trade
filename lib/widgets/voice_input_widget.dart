@@ -1,8 +1,11 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 
 class VoiceInputWidget extends StatefulWidget {
   final Function(String) onTextReceived;
+
+  /// Bare language code ('en', 'hi', 'te') or full BCP-47 id ('hi-IN').
   final String? initialLanguage;
 
   const VoiceInputWidget({
@@ -20,26 +23,81 @@ class _VoiceInputWidgetState extends State<VoiceInputWidget> {
   bool _isListening = false;
   bool _isAvailable = false;
   String _transcribedText = '';
-  String _selectedLanguage = 'en-US';
+  String _selectedLangCode = 'en';
+  List<LocaleName> _availableLocales = [];
 
-  final Map<String, String> _languages = {
-    'English': 'en-US',
-    'Hindi': 'hi-IN',
-    'Telugu': 'te-IN',
+  static const _languageOptions = {
+    'en': 'English',
+    'hi': 'Hindi',
+    'te': 'Telugu',
   };
 
   @override
   void initState() {
     super.initState();
-    _initSpeech();
     if (widget.initialLanguage != null) {
-      _selectedLanguage = widget.initialLanguage!;
+      _selectedLangCode = _normalizeLangCode(widget.initialLanguage!);
     }
+    _initSpeech();
+  }
+
+  String _normalizeLangCode(String input) {
+    final lower = input.toLowerCase();
+    if (lower.contains('-')) return lower.split('-').first;
+    if (lower.contains('_')) return lower.split('_').first;
+    return lower;
   }
 
   Future<void> _initSpeech() async {
     _isAvailable = await _speechToText.initialize();
-    setState(() {});
+    if (_isAvailable) {
+      _availableLocales = await _speechToText.locales();
+      if (kDebugMode) {
+        print('[VoiceInput] Available speech locales (${_availableLocales.length}):');
+        for (final locale in _availableLocales) {
+          print('  localeId: "${locale.localeId}", name: "${locale.name}"');
+        }
+      }
+    }
+    if (mounted) setState(() {});
+  }
+
+  /// Resolve a bare language code to a device-supported BCP-47 localeId.
+  String? _resolveLocaleId(String langCode) {
+    if (_availableLocales.isEmpty) return null;
+
+    final code = langCode.toLowerCase();
+
+    // Prefer exact xx-IN match (common on Indian devices).
+    for (final locale in _availableLocales) {
+      if (locale.localeId.toLowerCase() == '$code-in') {
+        return locale.localeId;
+      }
+    }
+
+    // Fall back to first locale whose id starts with the 2-letter code.
+    for (final locale in _availableLocales) {
+      final id = locale.localeId.toLowerCase();
+      if (id.startsWith('$code-') || id.startsWith('${code}_')) {
+        return locale.localeId;
+      }
+    }
+
+    // English fallbacks.
+    if (code == 'en') {
+      for (final locale in _availableLocales) {
+        if (locale.localeId.toLowerCase() == 'en-us') {
+          return locale.localeId;
+        }
+      }
+      for (final locale in _availableLocales) {
+        if (locale.localeId.toLowerCase().startsWith('en')) {
+          return locale.localeId;
+        }
+      }
+    }
+
+    return _availableLocales.first.localeId;
   }
 
   Future<void> _startListening() async {
@@ -50,6 +108,13 @@ class _VoiceInputWidgetState extends State<VoiceInputWidget> {
       return;
     }
 
+    final localeId = _resolveLocaleId(_selectedLangCode);
+    if (kDebugMode) {
+      print(
+        '[VoiceInput] listen(localeId: "$localeId", langCode: "$_selectedLangCode")',
+      );
+    }
+
     await _speechToText.listen(
       onResult: (result) {
         setState(() {
@@ -58,7 +123,7 @@ class _VoiceInputWidgetState extends State<VoiceInputWidget> {
       },
       listenFor: const Duration(seconds: 30),
       pauseFor: const Duration(seconds: 3),
-      localeId: _selectedLanguage,
+      localeId: localeId,
     );
 
     setState(() {
@@ -86,6 +151,10 @@ class _VoiceInputWidgetState extends State<VoiceInputWidget> {
 
   @override
   Widget build(BuildContext context) {
+    final dropdownValue = _languageOptions.containsKey(_selectedLangCode)
+        ? _selectedLangCode
+        : 'en';
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -105,26 +174,21 @@ class _VoiceInputWidgetState extends State<VoiceInputWidget> {
                 ),
                 const Spacer(),
                 DropdownButton<String>(
-                  value: _languages.entries
-                      .firstWhere(
-                        (entry) => entry.value == _selectedLanguage,
-                        orElse: () => _languages.entries.first,
-                      )
-                      .key,
-                  items: _languages.keys.map((String language) {
+                  value: dropdownValue,
+                  items: _languageOptions.entries.map((entry) {
                     return DropdownMenuItem<String>(
-                      value: language,
-                      child: Text(language),
+                      value: entry.key,
+                      child: Text(entry.value),
                     );
                   }).toList(),
                   onChanged: (String? newValue) {
                     if (newValue != null) {
                       setState(() {
-                        _selectedLanguage = _languages[newValue]!;
+                        _selectedLangCode = newValue;
                       });
                     }
                   },
-                  style: const TextStyle(fontSize: 14),
+                  style: const TextStyle(fontSize: 14, color: Colors.black87),
                   iconSize: 20,
                 ),
               ],
@@ -169,9 +233,9 @@ class _VoiceInputWidgetState extends State<VoiceInputWidget> {
               ),
             ),
             if (!_isAvailable)
-              Padding(
-                padding: const EdgeInsets.only(top: 8.0),
-                child: const Text(
+              const Padding(
+                padding: EdgeInsets.only(top: 8.0),
+                child: Text(
                   'Speech recognition not available on this device',
                   style: TextStyle(color: Colors.red, fontSize: 12),
                 ),

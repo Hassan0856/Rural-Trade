@@ -315,7 +315,7 @@ class _InfoCard extends StatelessWidget {
             Text(
               '• Total Listings Shared: Count of all active listings in the community\n'
               '• Requests Fulfilled: Number of successfully completed exchanges\n'
-              '• Idle Hours Saved: Based on an average of 8 hours saved per successful exchange',
+              '• Idle Hours Saved: Estimated as 4 hours per completed exchange',
               style: TextStyle(
                 fontSize: 14,
                 color: Colors.grey.shade700,

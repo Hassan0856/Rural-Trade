@@ -20,24 +20,17 @@ import 'screens/impact_stats_screen.dart';
 import 'screens/my_trades_screen.dart';
 import 'screens/language_select_screen.dart';
 import 'screens/home_screen.dart';
+import 'screens/welcome_screen.dart';
+import 'screens/notifications_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Load all first-launch state from SharedPreferences at startup
+  // Load saved language preference for UI (not used for routing)
   final prefs = await SharedPreferences.getInstance();
   final language = prefs.getString('app_language');
-  final onboardingCompleted = prefs.getBool('onboarding_completed') ?? false;
-  
-  // Initialize language provider with loaded value
   if (language != null) {
     languageProvider.setLanguage(language);
-    onboardingProvider.setLanguageSelected(true);
-  }
-  
-  // Initialize onboarding provider with loaded value
-  if (onboardingCompleted) {
-    onboardingProvider.setOnboardingSeen(true);
   }
   
   // Wrap Supabase initialization in 5-second timeout
@@ -59,8 +52,8 @@ void main() async {
     }
   }
   
-  // Initialize onboarding provider after Supabase is ready
-  onboardingProvider.init();
+  // Wait for session restore + profile check before routing
+  await onboardingProvider.initAsync();
   
   runApp(const ProviderScope(child: MyApp()));
 }
@@ -71,60 +64,57 @@ class MyApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final router = GoRouter(
-      initialLocation: '/',
+      initialLocation: '/welcome',
       refreshListenable: onboardingProvider,
       redirect: (context, state) {
         final currentPath = state.uri.path;
-        final langSelected = onboardingProvider.languageSelected;
-        final onboardingSeen = onboardingProvider.onboardingSeen;
+        final authReady = onboardingProvider.authReady;
         final signedIn = onboardingProvider.isSignedIn;
         final profileComplete = onboardingProvider.profileComplete;
-        
-        // Debug print for troubleshooting
+
+        const unauthenticatedPaths = {
+          '/welcome',
+          '/language-select',
+          '/onboarding',
+          '/phone',
+          '/otp',
+        };
+
         if (kDebugMode) {
-          print('[GoRouter Redirect] Path: $currentPath, langSelected: $langSelected, onboardingSeen: $onboardingSeen, signedIn: $signedIn, profileComplete: $profileComplete');
+          print('[GoRouter Redirect] Path: $currentPath, authReady: $authReady, signedIn: $signedIn, profileComplete: $profileComplete');
         }
-        
-        // First-launch flow gating
-        if (!langSelected) {
-          if (currentPath != '/language-select') {
-            return '/language-select';
-          }
+
+        if (!authReady) {
           return null;
         }
-        
-        if (!onboardingSeen) {
-          if (currentPath != '/onboarding') {
-            return '/onboarding';
-          }
-          return null;
-        }
-        
+
         if (!signedIn) {
-          if (currentPath != '/phone' && currentPath != '/otp') {
-            return '/phone';
+          if (unauthenticatedPaths.contains(currentPath)) {
+            return null;
           }
-          return null;
+          return '/welcome';
         }
-        
+
         if (!profileComplete) {
           if (currentPath != '/profile-setup') {
             return '/profile-setup';
           }
           return null;
         }
-        
-        // Authenticated user protection
-        if (signedIn && profileComplete) {
-          if (currentPath == '/phone' || currentPath == '/otp' || currentPath == '/profile-setup') {
-            return '/home';
-          }
+
+        if (unauthenticatedPaths.contains(currentPath) ||
+            currentPath == '/profile-setup') {
+          return '/home';
         }
-        
+
         return null;
       },
       routes: [
-        // First-launch flow routes (outside shell)
+        // Auth flow routes (outside shell)
+        GoRoute(
+          path: '/welcome',
+          builder: (context, state) => const WelcomeScreen(),
+        ),
         GoRoute(
           path: '/language-select',
           builder: (context, state) => const LanguageSelectScreen(),
@@ -157,6 +147,13 @@ class MyApp extends ConsumerWidget {
                 GoRoute(
                   path: '/home',
                   builder: (context, state) => const HomeScreen(),
+                  routes: [
+                    GoRoute(
+                      path: 'notifications',
+                      builder: (context, state) =>
+                          const NotificationsScreen(),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -203,7 +200,11 @@ class MyApp extends ConsumerWidget {
                     ),
                     GoRoute(
                       path: 'my-trades',
-                      builder: (context, state) => const MyTradesScreen(),
+                      builder: (context, state) {
+                        final requestId =
+                            state.uri.queryParameters['requestId'];
+                        return MyTradesScreen(highlightRequestId: requestId);
+                      },
                     ),
                   ],
                 ),

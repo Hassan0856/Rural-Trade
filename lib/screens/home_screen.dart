@@ -2,21 +2,54 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../providers/auth_provider.dart';
+import '../providers/notifications_provider.dart';
 
-class HomeScreen extends ConsumerWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends ConsumerState<HomeScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(notificationsProvider.notifier).fetchUnreadCount();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final unreadCount = ref.watch(notificationsProvider).unreadCount;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Village Exchange'),
         actions: [
           IconButton(
+            icon: Badge(
+              isLabelVisible: unreadCount > 0,
+              label: Text(
+                unreadCount > 99 ? '99+' : '$unreadCount',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              child: const Icon(Icons.notifications),
+            ),
+            onPressed: () async {
+              await context.push('/home/notifications');
+              if (mounted) {
+                ref.read(notificationsProvider.notifier).fetchUnreadCount();
+              }
+            },
+          ),
+          IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () {
               ref.read(authProvider.notifier).signOut();
-              context.go('/phone');
+              context.go('/welcome');
             },
           ),
         ],
@@ -30,9 +63,16 @@ class HomeScreen extends ConsumerWidget {
             const Text(
               'Welcome to Village Exchange!',
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
             const SizedBox(height: 8),
-            const Text('You are now logged in'),
+            const Text(
+              'You are now logged in',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
             const SizedBox(height: 32),
             ElevatedButton.icon(
               onPressed: () {
@@ -41,7 +81,20 @@ class HomeScreen extends ConsumerWidget {
               icon: const Icon(Icons.add),
               label: const Text('Add Listing'),
               style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+              ),
+            ),
+            const SizedBox(height: 16),
+            OutlinedButton.icon(
+              onPressed: () {
+                context.go('/profile/my-trades');
+              },
+              icon: const Icon(Icons.swap_horiz),
+              label: const Text('My Trades'),
+              style: OutlinedButton.styleFrom(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
               ),
             ),
             const SizedBox(height: 16),
@@ -52,7 +105,8 @@ class HomeScreen extends ConsumerWidget {
               icon: const Icon(Icons.bar_chart),
               label: const Text('View Impact Stats'),
               style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
               ),
             ),
           ],

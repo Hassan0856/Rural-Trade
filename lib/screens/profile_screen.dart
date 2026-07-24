@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../services/supabase_service.dart';
 import '../providers/user_listings_provider.dart';
 import '../providers/auth_provider.dart';
+import '../providers/trades_provider.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -18,6 +19,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(userListingsProvider.notifier).fetchUserListings();
+      ref.read(tradesProvider.notifier).fetchIncomingRequests();
     });
   }
 
@@ -143,6 +145,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final userListingsState = ref.watch(userListingsProvider);
+    final tradesState = ref.watch(tradesProvider);
     final userId = SupabaseService.client.auth.currentUser?.id;
 
     ref.listen<UserListingsState>(userListingsProvider, (previous, next) {
@@ -154,6 +157,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       }
     });
 
+    ref.listen<TradesState>(tradesProvider, (previous, next) {
+      if (next.errorMessage != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(next.errorMessage!)),
+        );
+        ref.read(tradesProvider.notifier).clearError();
+      }
+    });
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('My Profile'),
@@ -162,7 +174,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             icon: const Icon(Icons.logout),
             onPressed: () {
               ref.read(authProvider.notifier).signOut();
-              context.go('/phone');
+              context.go('/welcome');
             },
           ),
         ],
@@ -267,6 +279,86 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       ),
                       const SizedBox(height: 24),
 
+                      // Incoming Requests Section
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Incoming Requests',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          if (tradesState.incomingPending.isNotEmpty)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: Colors.orange.shade100,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                '${tradesState.incomingPending.length} pending',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.orange.shade800,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+
+                      if (tradesState.status == TradesStatus.loading &&
+                          tradesState.incomingPending.isEmpty)
+                        const Center(child: CircularProgressIndicator())
+                      else if (tradesState.incomingPending.isEmpty)
+                        const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 16),
+                          child: Center(
+                            child: Text(
+                              'No pending requests',
+                              style: TextStyle(color: Colors.grey),
+                            ),
+                          ),
+                        )
+                      else
+                        ListView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: tradesState.incomingPending.length,
+                          itemBuilder: (context, index) {
+                            final request =
+                                tradesState.incomingPending[index];
+                            return _IncomingRequestCard(
+                              trade: request,
+                              onAccept: () async {
+                                final error = await ref
+                                    .read(tradesProvider.notifier)
+                                    .acceptRequest(request.id);
+                                if (error != null && context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text(error)),
+                                  );
+                                }
+                              },
+                              onReject: () async {
+                                final error = await ref
+                                    .read(tradesProvider.notifier)
+                                    .rejectRequest(request.id);
+                                if (error != null && context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text(error)),
+                                  );
+                                }
+                              },
+                            );
+                          },
+                        ),
+                      const SizedBox(height: 24),
+
                       // My Listings Section
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -352,6 +444,108 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     } catch (e) {
       return null;
     }
+  }
+}
+
+class _IncomingRequestCard extends StatelessWidget {
+  final TradeRequest trade;
+  final Future<void> Function() onAccept;
+  final Future<void> Function() onReject;
+
+  const _IncomingRequestCard({
+    required this.trade,
+    required this.onAccept,
+    required this.onReject,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        trade.listingTitle,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'From: ${trade.requesterName}',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey.shade600,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.shade100,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    'Pending',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.orange.shade800,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: onAccept,
+                    icon: const Icon(Icons.check, size: 18),
+                    label: const Text('Accept'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: onReject,
+                    icon: const Icon(Icons.close, size: 18),
+                    label: const Text('Reject'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.red,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -457,6 +651,8 @@ class _ListingCard extends StatelessWidget {
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
                         ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 4),
                       Text(
@@ -465,18 +661,24 @@ class _ListingCard extends StatelessWidget {
                           fontSize: 14,
                           color: Colors.grey.shade600,
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 4),
                       Row(
                         children: [
                           _StatusChip(status: listing.status),
                           const SizedBox(width: 8),
-                          Text(
-                            listing.type.toUpperCase(),
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey.shade500,
-                              fontWeight: FontWeight.w500,
+                          Flexible(
+                            child: Text(
+                              listing.type.toUpperCase(),
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey.shade500,
+                                fontWeight: FontWeight.w500,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                         ],
@@ -563,6 +765,8 @@ class _StatusChip extends StatelessWidget {
           fontWeight: FontWeight.w500,
           color: textColor,
         ),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
       ),
     );
   }

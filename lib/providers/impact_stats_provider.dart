@@ -41,7 +41,8 @@ class ImpactStatsState {
 }
 
 class ImpactStatsNotifier extends StateNotifier<ImpactStatsState> {
-  static const int _hoursSavedPerExchange = 8; // Assumed average hours saved per exchange
+  // Assumed average idle hours saved per completed exchange.
+  static const int _hoursSavedPerExchange = 4;
 
   ImpactStatsNotifier() : super(ImpactStatsState());
 

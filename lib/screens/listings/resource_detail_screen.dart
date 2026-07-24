@@ -1,4 +1,6 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../services/supabase_service.dart';
 import '../../models/listing_enums.dart';
 
@@ -133,16 +135,23 @@ class _ResourceDetailScreenState extends State<ResourceDetailScreen> {
     }
   }
 
+  bool _isOwnListing() {
+    if (_listing == null) return false;
+    final currentUserId = Supabase.instance.client.auth.currentUser?.id;
+    if (currentUserId == null) return false;
+    return _listing!['owner_id'] == currentUserId;
+  }
+
   Future<void> _checkIfAlreadyRequested() async {
     if (_listing == null) return;
     
     try {
-      final currentUserId = SupabaseService.client.auth.currentUser?.id;
+      final currentUserId = Supabase.instance.client.auth.currentUser?.id;
       if (currentUserId == null) return;
 
       final response = await SupabaseService.client
           .from('requests')
-          .select()
+          .select('id')
           .eq('requester_id', currentUserId)
           .eq('listing_id', _listing!['id'])
           .maybeSingle();
@@ -153,20 +162,24 @@ class _ResourceDetailScreenState extends State<ResourceDetailScreen> {
         });
       }
     } catch (e) {
-      // Error checking request status
+      if (kDebugMode) {
+        print('[Request] Error checking existing request: $e');
+      }
     }
   }
 
   Future<void> _requestResource() async {
     if (_listing == null) return;
-    
-    final currentUserId = SupabaseService.client.auth.currentUser?.id;
-    if (currentUserId == null) {
+
+    // Read requester_id live from auth at the moment of tap — not from cache.
+    final currentUser = Supabase.instance.client.auth.currentUser;
+    if (currentUser == null) {
       _showErrorToast('You must be logged in to request a resource');
       return;
     }
+    final requesterId = currentUser.id;
 
-    if (currentUserId == _listing!['owner_id']) {
+    if (requesterId == _listing!['owner_id']) {
       _showErrorToast('You cannot request your own listing');
       return;
     }
@@ -177,11 +190,9 @@ class _ResourceDetailScreenState extends State<ResourceDetailScreen> {
 
     try {
       await SupabaseService.client.from('requests').insert({
-        'requester_id': currentUserId,
-        'owner_id': _listing!['owner_id'],
+        'requester_id': requesterId,
         'listing_id': _listing!['id'],
         'status': 'pending',
-        'created_at': DateTime.now().toIso8601String(),
       });
 
       if (mounted) {
@@ -191,12 +202,26 @@ class _ResourceDetailScreenState extends State<ResourceDetailScreen> {
         });
         _showSuccessToast('Request sent successfully!');
       }
-    } catch (e) {
+    } on PostgrestException catch (e) {
+      if (kDebugMode) {
+        print('[Request] PostgrestException: ${e.message}');
+        print('[Request] code: ${e.code}, details: ${e.details}, hint: ${e.hint}');
+      }
       if (mounted) {
         setState(() {
           _isRequesting = false;
         });
-        _showErrorToast('Failed to send request: $e');
+        _showFullError(e.message);
+      }
+    } catch (e, stack) {
+      if (kDebugMode) {
+        print('[Request] Unexpected error: $e\n$stack');
+      }
+      if (mounted) {
+        setState(() {
+          _isRequesting = false;
+        });
+        _showFullError(e.toString());
       }
     }
   }
@@ -224,11 +249,30 @@ class _ResourceDetailScreenState extends State<ResourceDetailScreen> {
           children: [
             const Icon(Icons.error, color: Colors.white),
             const SizedBox(width: 8),
-            Text(message),
+            Expanded(child: Text(message)),
           ],
         ),
         backgroundColor: Colors.red,
         behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 6),
+      ),
+    );
+  }
+
+  void _showFullError(String message) {
+    showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Request Failed'),
+        content: SingleChildScrollView(
+          child: SelectableText(message),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
+        ],
       ),
     );
   }
@@ -283,6 +327,7 @@ class _ResourceDetailScreenState extends State<ResourceDetailScreen> {
     final typeDisplay = ListingEnums.exchangeTypes[typeKey] ?? typeLabel;
     final distance = listing['distance'] ?? 'Unknown';
     final isAvailable = listing['status'] == 'active';
+    final isOwnListing = _isOwnListing();
 
     return Scaffold(
       backgroundColor: _earthBeige,
@@ -559,57 +604,76 @@ class _ResourceDetailScreenState extends State<ResourceDetailScreen> {
                   ),
                   const SizedBox(height: 24),
 
-                  // Request Button
-                  SizedBox(
-                    width: double.infinity,
-                    height: 56,
-                    child: ElevatedButton(
-                      onPressed: _hasRequested || !isAvailable
-                          ? null
-                          : _isRequesting
-                              ? null
-                              : _requestResource,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: _earthGreen,
-                        foregroundColor: Colors.white,
-                        disabledBackgroundColor: Colors.grey,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                  // Request Button (hidden for own listings)
+                  if (!isOwnListing)
+                    SizedBox(
+                      width: double.infinity,
+                      height: 56,
+                      child: ElevatedButton(
+                        onPressed: _hasRequested || !isAvailable
+                            ? null
+                            : _isRequesting
+                                ? null
+                                : _requestResource,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: _earthGreen,
+                          foregroundColor: Colors.white,
+                          disabledBackgroundColor: Colors.grey,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: _isRequesting
+                            ? const SizedBox(
+                                width: 24,
+                                height: 24,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor:
+                                      AlwaysStoppedAnimation<Color>(Colors.white),
+                                ),
+                              )
+                            : _hasRequested
+                                ? const Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(Icons.check),
+                                      SizedBox(width: 8),
+                                      Text('Request Sent'),
+                                    ],
+                                  )
+                                : const Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(Icons.send),
+                                      SizedBox(width: 8),
+                                      Text('Request This'),
+                                    ],
+                                  ),
+                      ),
+                    )
+                  else
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: _earthTan.withValues(alpha: 0.3),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: _earthTan),
+                      ),
+                      child: const Text(
+                        'This is your listing',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: _earthBrown,
+                          fontStyle: FontStyle.italic,
                         ),
                       ),
-                      child: _isRequesting
-                          ? const SizedBox(
-                              width: 24,
-                              height: 24,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor:
-                                    AlwaysStoppedAnimation<Color>(Colors.white),
-                              ),
-                            )
-                          : _hasRequested
-                              ? const Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(Icons.check),
-                                    SizedBox(width: 8),
-                                    Text('Request Sent'),
-                                  ],
-                                )
-                              : const Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(Icons.send),
-                                    SizedBox(width: 8),
-                                    Text('Request This'),
-                                  ],
-                                ),
                     ),
-                  ),
                   const SizedBox(height: 16),
 
                   // Info text
-                  if (!_hasRequested && isAvailable)
+                  if (!_hasRequested && isAvailable && !isOwnListing)
                     Text(
                       'By requesting, you\'ll be connected with the owner to arrange the exchange.',
                       style: TextStyle(

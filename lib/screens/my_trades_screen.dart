@@ -3,19 +3,60 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/trades_provider.dart';
 
 class MyTradesScreen extends ConsumerStatefulWidget {
-  const MyTradesScreen({super.key});
+  final String? highlightRequestId;
+
+  const MyTradesScreen({super.key, this.highlightRequestId});
 
   @override
   ConsumerState<MyTradesScreen> createState() => _MyTradesScreenState();
 }
 
 class _MyTradesScreenState extends ConsumerState<MyTradesScreen> {
+  final ScrollController _scrollController = ScrollController();
+  final Map<String, GlobalKey> _tradeKeys = {};
+  bool _hasScrolledToHighlight = false;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(tradesProvider.notifier).fetchUserTrades();
     });
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _scrollToHighlightIfNeeded(List<TradeRequest> trades) {
+    final requestId = widget.highlightRequestId;
+    if (requestId == null || _hasScrolledToHighlight) return;
+
+    final index = trades.indexWhere((t) => t.id == requestId);
+    if (index < 0) return;
+
+    _hasScrolledToHighlight = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final key = _tradeKeys[requestId];
+      if (key?.currentContext != null) {
+        Scrollable.ensureVisible(
+          key!.currentContext!,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+        );
+      }
+    });
+  }
+
+  Future<void> _handleAction(Future<String?> Function() action) async {
+    final error = await action();
+    if (error != null && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error)),
+      );
+    }
   }
 
   void _showReviewDialog(TradeRequest trade) {
@@ -69,15 +110,29 @@ class _MyTradesScreenState extends ConsumerState<MyTradesScreen> {
             ElevatedButton(
               onPressed: () async {
                 final dialogContext = context;
-                final revieweeId = trade.isSent ? trade.ownerId : trade.requesterId;
-                await ref.read(tradesProvider.notifier).submitReview(
+                final revieweeId =
+                    trade.isSent ? trade.ownerId : trade.requesterId;
+                final error = await ref.read(tradesProvider.notifier).submitReview(
                       requestId: trade.id,
                       revieweeId: revieweeId,
                       rating: rating,
-                      comment: commentController.text.isEmpty ? null : commentController.text,
+                      comment: commentController.text.isEmpty
+                          ? null
+                          : commentController.text,
                     );
                 if (dialogContext.mounted) {
                   Navigator.pop(dialogContext);
+                  if (error != null) {
+                    ScaffoldMessenger.of(dialogContext).showSnackBar(
+                      SnackBar(content: Text(error)),
+                    );
+                  } else {
+                    ScaffoldMessenger.of(dialogContext).showSnackBar(
+                      const SnackBar(
+                        content: Text('Review submitted — trust scores will update on refresh'),
+                      ),
+                    );
+                  }
                 }
               },
               child: const Text('Submit Review'),
@@ -104,7 +159,8 @@ class _MyTradesScreenState extends ConsumerState<MyTradesScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Category', style: TextStyle(fontWeight: FontWeight.bold)),
+                const Text('Category',
+                    style: TextStyle(fontWeight: FontWeight.bold)),
                 const SizedBox(height: 8),
                 DropdownButtonFormField<String>(
                   initialValue: selectedCategory,
@@ -124,7 +180,8 @@ class _MyTradesScreenState extends ConsumerState<MyTradesScreen> {
                   validator: (value) => value == null ? 'Required' : null,
                 ),
                 const SizedBox(height: 16),
-                const Text('Description', style: TextStyle(fontWeight: FontWeight.bold)),
+                const Text('Description',
+                    style: TextStyle(fontWeight: FontWeight.bold)),
                 const SizedBox(height: 8),
                 TextFormField(
                   controller: descriptionController,
@@ -133,7 +190,8 @@ class _MyTradesScreenState extends ConsumerState<MyTradesScreen> {
                     hintText: 'Describe the issue',
                   ),
                   maxLines: 4,
-                  validator: (value) => value?.isEmpty ?? true ? 'Required' : null,
+                  validator: (value) =>
+                      value?.isEmpty ?? true ? 'Required' : null,
                 ),
               ],
             ),
@@ -146,15 +204,29 @@ class _MyTradesScreenState extends ConsumerState<MyTradesScreen> {
           ),
           ElevatedButton(
             onPressed: () async {
-              if (formKey.currentState!.validate() && selectedCategory != null) {
+              if (formKey.currentState!.validate() &&
+                  selectedCategory != null) {
                 final dialogContext = context;
-                await ref.read(tradesProvider.notifier).submitComplaint(
-                      requestId: trade.id,
-                      category: selectedCategory!,
-                      description: descriptionController.text,
-                    );
+                final error =
+                    await ref.read(tradesProvider.notifier).submitComplaint(
+                          requestId: trade.id,
+                          category: selectedCategory!,
+                          description: descriptionController.text,
+                        );
                 if (dialogContext.mounted) {
                   Navigator.pop(dialogContext);
+                  if (error != null) {
+                    ScaffoldMessenger.of(dialogContext).showSnackBar(
+                      SnackBar(content: Text(error)),
+                    );
+                  } else {
+                    ScaffoldMessenger.of(dialogContext).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                            'Report submitted — trust scores will update on refresh'),
+                      ),
+                    );
+                  }
                 }
               }
             },
@@ -169,6 +241,11 @@ class _MyTradesScreenState extends ConsumerState<MyTradesScreen> {
   @override
   Widget build(BuildContext context) {
     final tradesState = ref.watch(tradesProvider);
+    final highlightId = widget.highlightRequestId;
+
+    if (tradesState.status == TradesStatus.loaded && highlightId != null) {
+      _scrollToHighlightIfNeeded(tradesState.trades);
+    }
 
     ref.listen<TradesState>(tradesProvider, (previous, next) {
       if (next.errorMessage != null) {
@@ -182,6 +259,13 @@ class _MyTradesScreenState extends ConsumerState<MyTradesScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('My Trades'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: () =>
+                ref.read(tradesProvider.notifier).fetchUserTrades(),
+          ),
+        ],
       ),
       body: tradesState.status == TradesStatus.loading
           ? const Center(child: CircularProgressIndicator())
@@ -199,17 +283,37 @@ class _MyTradesScreenState extends ConsumerState<MyTradesScreen> {
                     ],
                   ),
                 )
-              : ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: tradesState.trades.length,
-                  itemBuilder: (context, index) {
-                    final trade = tradesState.trades[index];
-                    return _TradeCard(
-                      trade: trade,
-                      onReview: () => _showReviewDialog(trade),
-                      onReportIssue: () => _showReportIssueDialog(trade),
-                    );
-                  },
+              : RefreshIndicator(
+                  onRefresh: () =>
+                      ref.read(tradesProvider.notifier).fetchUserTrades(),
+                  child: ListView.builder(
+                    controller: _scrollController,
+                    padding: const EdgeInsets.all(16),
+                    itemCount: tradesState.trades.length,
+                    itemBuilder: (context, index) {
+                      final trade = tradesState.trades[index];
+                      final isHighlighted = trade.id == highlightId;
+                      _tradeKeys.putIfAbsent(trade.id, GlobalKey.new);
+                      return KeyedSubtree(
+                        key: _tradeKeys[trade.id],
+                        child: _TradeCard(
+                          trade: trade,
+                          isHighlighted: isHighlighted,
+                          onAccept: () => _handleAction(() => ref
+                              .read(tradesProvider.notifier)
+                              .acceptRequest(trade.id)),
+                          onReject: () => _handleAction(() => ref
+                              .read(tradesProvider.notifier)
+                              .rejectRequest(trade.id)),
+                          onComplete: () => _handleAction(() => ref
+                              .read(tradesProvider.notifier)
+                              .completeRequest(trade.id)),
+                          onReview: () => _showReviewDialog(trade),
+                          onReportIssue: () => _showReportIssueDialog(trade),
+                        ),
+                      );
+                    },
+                  ),
                 ),
     );
   }
@@ -217,11 +321,19 @@ class _MyTradesScreenState extends ConsumerState<MyTradesScreen> {
 
 class _TradeCard extends StatelessWidget {
   final TradeRequest trade;
+  final bool isHighlighted;
+  final VoidCallback onAccept;
+  final VoidCallback onReject;
+  final VoidCallback onComplete;
   final VoidCallback onReview;
   final VoidCallback onReportIssue;
 
   const _TradeCard({
     required this.trade,
+    this.isHighlighted = false,
+    required this.onAccept,
+    required this.onReject,
+    required this.onComplete,
     required this.onReview,
     required this.onReportIssue,
   });
@@ -229,10 +341,14 @@ class _TradeCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isCompleted = trade.status == 'completed';
+    final isAccepted = trade.status == 'accepted';
+    final isPending = trade.status == 'pending';
     final isSent = trade.isSent;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
+      color: isHighlighted ? Colors.green.shade50 : null,
+      elevation: isHighlighted ? 4 : 1,
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -266,7 +382,8 @@ class _TradeCard extends StatelessWidget {
                       color: Colors.green.shade100,
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: Icon(Icons.agriculture, color: Colors.green.shade700),
+                    child:
+                        Icon(Icons.agriculture, color: Colors.green.shade700),
                   ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -279,6 +396,8 @@ class _TradeCard extends StatelessWidget {
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
                         ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 4),
                       Text(
@@ -287,6 +406,8 @@ class _TradeCard extends StatelessWidget {
                           fontSize: 12,
                           color: Colors.grey.shade600,
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 4),
                       Row(
@@ -297,13 +418,17 @@ class _TradeCard extends StatelessWidget {
                             color: Colors.grey,
                           ),
                           const SizedBox(width: 4),
-                          Text(
-                            isSent
-                                ? 'To: ${trade.ownerName}'
-                                : 'From: ${trade.requesterName}',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey.shade600,
+                          Expanded(
+                            child: Text(
+                              isSent
+                                  ? 'To: ${trade.ownerName}'
+                                  : 'From: ${trade.requesterName}',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey.shade600,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                         ],
@@ -315,25 +440,28 @@ class _TradeCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 12),
-            if (isCompleted)
+
+            // Owner actions on pending incoming requests
+            if (!isSent && isPending)
               Row(
                 children: [
                   Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: onReview,
-                      icon: const Icon(Icons.star, size: 18),
-                      label: const Text('Leave Review'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.amber,
+                    child: ElevatedButton.icon(
+                      onPressed: onAccept,
+                      icon: const Icon(Icons.check, size: 18),
+                      label: const Text('Accept'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green,
+                        foregroundColor: Colors.white,
                       ),
                     ),
                   ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: OutlinedButton.icon(
-                      onPressed: onReportIssue,
-                      icon: const Icon(Icons.report, size: 18),
-                      label: const Text('Report Issue'),
+                      onPressed: onReject,
+                      icon: const Icon(Icons.close, size: 18),
+                      label: const Text('Reject'),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: Colors.red,
                       ),
@@ -341,6 +469,74 @@ class _TradeCard extends StatelessWidget {
                   ),
                 ],
               ),
+
+            // Either participant can mark accepted trades as completed
+            if (isAccepted)
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: onComplete,
+                  icon: const Icon(Icons.done_all, size: 18),
+                  label: const Text('Mark as Completed'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+              ),
+
+            // Review / complaint actions on completed trades
+            if (isCompleted) ...[
+              if (!trade.hasUserReviewed)
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: onReview,
+                    icon: const Icon(Icons.star, size: 18),
+                    label: const Text('Leave a Review'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.amber.shade800,
+                    ),
+                  ),
+                )
+              else
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Text(
+                    'Review submitted',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey.shade600,
+                      fontStyle: FontStyle.italic,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              if (!trade.hasUserComplained)
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: onReportIssue,
+                    icon: const Icon(Icons.report, size: 18),
+                    label: const Text('Report an Issue'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.red,
+                    ),
+                  ),
+                )
+              else
+                Text(
+                  'Issue reported',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey.shade600,
+                    fontStyle: FontStyle.italic,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+            ],
           ],
         ),
       ),
@@ -399,6 +595,8 @@ class _StatusChip extends StatelessWidget {
           fontWeight: FontWeight.w600,
           color: textColor,
         ),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
       ),
     );
   }
