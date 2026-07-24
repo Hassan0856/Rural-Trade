@@ -1,21 +1,27 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../services/language_service.dart';
+import '../services/auth_service.dart';
 
 class OnboardingState extends ChangeNotifier {
   bool _languageSelected = false;
   bool _onboardingSeen = false;
-  bool _profileComplete = false;
+  bool? _profileComplete;
   bool _authReady = false;
   StreamSubscription<AuthState>? _authSubscription;
   bool _initialized = false;
+  String _currentLanguage = 'en';
+  bool _profileCheckFailed = false;
 
   bool get languageSelected => _languageSelected;
   bool get onboardingSeen => _onboardingSeen;
   bool get isSignedIn => Supabase.instance.client.auth.currentSession != null;
-  bool get profileComplete => _profileComplete;
+  bool? get profileComplete => _profileComplete;
   bool get authReady => _authReady;
   bool get initialized => _initialized;
+  String get currentLanguage => _currentLanguage;
+  bool get profileCheckFailed => _profileCheckFailed;
 
   OnboardingState();
 
@@ -23,6 +29,14 @@ class OnboardingState extends ChangeNotifier {
   Future<void> initAsync() async {
     if (_initialized) return;
     _initialized = true;
+    
+    // Load saved language preference
+    final languageService = LanguageService();
+    final savedLanguage = await languageService.getLanguage();
+    if (savedLanguage != null) {
+      _currentLanguage = savedLanguage;
+    }
+    
     _initAuthListener();
     await _restoreSessionAndCheckProfile();
     _authReady = true;
@@ -70,45 +84,18 @@ class OnboardingState extends ChangeNotifier {
   }
 
   Future<void> _checkProfileComplete() async {
-    final session = Supabase.instance.client.auth.currentSession;
-    if (session == null) {
-      _profileComplete = false;
-      return;
+    final authService = AuthService();
+    final result = await authService.checkProfileComplete();
+    
+    if (result == null) {
+      // Could not determine after retries - show retry state
+      _profileComplete = null;
+      _profileCheckFailed = true;
+    } else {
+      _profileComplete = result;
+      _profileCheckFailed = false;
     }
-
-    try {
-      final userData = await Supabase.instance.client
-          .from('users')
-          .select('name, village')
-          .eq('id', session.user.id)
-          .maybeSingle()
-          .timeout(const Duration(seconds: 5));
-
-      if (userData != null) {
-        final name = userData['name'] as String?;
-        final village = userData['village'] as String?;
-        _profileComplete = name != null &&
-            village != null &&
-            name != 'New villager' &&
-            village != 'Unknown';
-      } else {
-        // Row not found but session exists — fail toward Home, not re-onboarding.
-        if (kDebugMode) {
-          print('[Onboarding] No users row for ${session.user.id} — treating as complete');
-        }
-        _profileComplete = true;
-      }
-    } catch (e) {
-      // Query failed/timed out but session exists — fail toward Home.
-      if (kDebugMode) {
-        print('[Onboarding] Profile check error: $e — treating as complete');
-      }
-      if (Supabase.instance.client.auth.currentSession != null) {
-        _profileComplete = true;
-      } else {
-        _profileComplete = false;
-      }
-    }
+    notifyListeners();
   }
 
   @override
@@ -130,6 +117,16 @@ class OnboardingState extends ChangeNotifier {
   void setProfileComplete(bool value) {
     _profileComplete = value;
     notifyListeners();
+  }
+
+  void setCurrentLanguage(String languageCode) {
+    _currentLanguage = languageCode;
+    notifyListeners();
+  }
+
+  /// Public method to retry profile check after a failure
+  Future<void> retryProfileCheck() async {
+    await _checkProfileComplete();
   }
 }
 

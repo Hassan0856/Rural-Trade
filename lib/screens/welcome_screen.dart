@@ -1,11 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../l10n/app_strings.dart';
+import '../providers/onboarding_provider.dart';
 
-class WelcomeScreen extends StatelessWidget {
+class WelcomeScreen extends StatefulWidget {
   const WelcomeScreen({super.key});
 
   @override
+  State<WelcomeScreen> createState() => _WelcomeScreenState();
+}
+
+class _WelcomeScreenState extends State<WelcomeScreen> {
+  @override
   Widget build(BuildContext context) {
+    final currentLanguage = onboardingProvider.currentLanguage;
+    
     return Scaffold(
       body: SafeArea(
         child: Padding(
@@ -20,9 +29,9 @@ class WelcomeScreen extends StatelessWidget {
                 color: Colors.green,
               ),
               const SizedBox(height: 24),
-              const Text(
-                'Village Exchange',
-                style: TextStyle(
+              Text(
+                AppStrings.t('welcome_title', currentLanguage),
+                style: const TextStyle(
                   fontSize: 32,
                   fontWeight: FontWeight.bold,
                 ),
@@ -30,7 +39,7 @@ class WelcomeScreen extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               Text(
-                'Trade resources with your village community',
+                AppStrings.t('welcome_subtitle', currentLanguage),
                 style: TextStyle(
                   fontSize: 16,
                   color: Colors.grey.shade600,
@@ -48,9 +57,9 @@ class WelcomeScreen extends StatelessWidget {
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                child: const Text(
-                  'Register',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                child: Text(
+                  AppStrings.t('welcome_register_button', currentLanguage),
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
               ),
               const SizedBox(height: 16),
@@ -64,9 +73,9 @@ class WelcomeScreen extends StatelessWidget {
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                child: const Text(
-                  'Login',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                child: Text(
+                  AppStrings.t('welcome_login_button', currentLanguage),
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
               ),
             ],

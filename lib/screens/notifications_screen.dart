@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../providers/notifications_provider.dart';
+import '../providers/language_provider.dart';
+import '../l10n/app_strings.dart';
 
 class NotificationsScreen extends ConsumerStatefulWidget {
   const NotificationsScreen({super.key});
@@ -49,10 +51,11 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(notificationsProvider);
+    final currentLanguage = languageProvider.language ?? 'en';
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Notifications'),
+        title: Text(AppStrings.t('notifications_title', currentLanguage)),
       ),
       body: state.status == NotificationsStatus.loading &&
               state.notifications.isEmpty

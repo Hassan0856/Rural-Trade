@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../services/auth_service.dart';
 import '../../providers/onboarding_provider.dart';
+import '../../l10n/app_strings.dart';
 
 class ProfileSetupScreen extends ConsumerStatefulWidget {
   const ProfileSetupScreen({super.key});
@@ -105,8 +106,10 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final currentLanguage = onboardingProvider.currentLanguage;
+    
     return Scaffold(
-      appBar: AppBar(title: const Text('Complete Your Profile')),
+      appBar: AppBar(title: Text(AppStrings.t('profile_title', currentLanguage))),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24.0),
         child: Form(
@@ -114,18 +117,18 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text(
-                'Tell us about yourself',
-                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+              Text(
+                AppStrings.t('profile_subtitle', currentLanguage),
+                style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 32),
               TextFormField(
                 controller: _nameController,
-                decoration: const InputDecoration(
-                  labelText: 'Your Name',
-                  prefixIcon: Icon(Icons.person),
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: AppStrings.t('profile_name_hint', currentLanguage),
+                  prefixIcon: const Icon(Icons.person),
+                  border: const OutlineInputBorder(),
                 ),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
@@ -137,10 +140,10 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
               const SizedBox(height: 16),
               TextFormField(
                 controller: _villageController,
-                decoration: const InputDecoration(
-                  labelText: 'Village Name',
-                  prefixIcon: Icon(Icons.location_city),
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: AppStrings.t('profile_village_hint', currentLanguage),
+                  prefixIcon: const Icon(Icons.location_city),
+                  border: const OutlineInputBorder(),
                 ),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
@@ -160,9 +163,9 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                         children: [
                           const Icon(Icons.location_on),
                           const SizedBox(width: 8),
-                          const Text(
-                            'Location Access',
-                            style: TextStyle(
+                          Text(
+                            AppStrings.t('profile_location_label', currentLanguage),
+                            style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
                             ),
@@ -192,9 +195,9 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                           style: const TextStyle(color: Colors.green),
                         )
                       else
-                        const Text(
-                          'Enable location to help others find resources near you',
-                          style: TextStyle(color: Colors.grey),
+                        Text(
+                          AppStrings.t('profile_location_subtitle', currentLanguage),
+                          style: const TextStyle(color: Colors.grey),
                         ),
                     ],
                   ),
@@ -208,7 +211,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                 ),
                 child: _submitting
                     ? const CircularProgressIndicator()
-                    : const Text('Complete Profile', style: TextStyle(fontSize: 16)),
+                    : Text(AppStrings.t('profile_complete_button', currentLanguage), style: const TextStyle(fontSize: 16)),
               ),
             ],
           ),

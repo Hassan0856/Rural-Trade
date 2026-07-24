@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:go_router/go_router.dart';
 import '../providers/onboarding_provider.dart';
+import '../l10n/app_strings.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -14,18 +15,18 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   final PageController _pageController = PageController();
   int _currentPage = 0;
 
-  final List<OnboardingSlide> _slides = [
+  List<OnboardingSlide> _slides(BuildContext context, String currentLanguage) => [
     OnboardingSlide(
       icon: Icons.search,
-      title: 'Find what your village needs, when it needs it',
+      title: AppStrings.t('onboarding_slide1', currentLanguage),
     ),
     OnboardingSlide(
       icon: Icons.agriculture,
-      title: 'List your idle equipment, tools, or produce',
+      title: AppStrings.t('onboarding_slide2', currentLanguage),
     ),
     OnboardingSlide(
       icon: Icons.mic,
-      title: 'Speak instead of type — works in your language',
+      title: AppStrings.t('onboarding_slide3', currentLanguage),
     ),
   ];
 
@@ -45,7 +46,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   void _nextPage() {
-    if (_currentPage < _slides.length - 1) {
+    final slides = _slides(context, onboardingProvider.currentLanguage);
+    if (_currentPage < slides.length - 1) {
       _pageController.nextPage(
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeInOut,
@@ -57,6 +59,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final currentLanguage = onboardingProvider.currentLanguage;
+    final slides = _slides(context, currentLanguage);
+    
     return Scaffold(
       body: SafeArea(
         child: Column(
@@ -69,9 +74,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     _currentPage = index;
                   });
                 },
-                itemCount: _slides.length,
+                itemCount: slides.length,
                 itemBuilder: (context, index) {
-                  return OnboardingSlideWidget(slide: _slides[index]);
+                  return OnboardingSlideWidget(slide: slides[index]);
                 },
               ),
             ),
@@ -82,7 +87,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: List.generate(
-                      _slides.length,
+                      slides.length,
                       (index) => AnimatedContainer(
                         duration: const Duration(milliseconds: 300),
                         margin: const EdgeInsets.symmetric(horizontal: 4),
@@ -111,8 +116,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         ),
                       ),
                       child: Text(
-                        _currentPage == _slides.length - 1
-                            ? 'Get Started'
+                        _currentPage == slides.length - 1
+                            ? AppStrings.t('onboarding_get_started', currentLanguage)
                             : 'Next',
                         style: const TextStyle(
                           fontSize: 16,

@@ -1,13 +1,21 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
+import 'package:flutter/foundation.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:go_router/go_router.dart';
 import '../../providers/listing_provider.dart';
+import '../../providers/connectivity_provider.dart';
+import '../../providers/language_provider.dart';
 import '../../widgets/voice_input_widget.dart';
+import '../../widgets/offline_banner.dart';
 import '../../services/language_service.dart';
+import '../../services/local_database.dart';
 import '../../models/listing_enums.dart';
+import '../../l10n/app_strings.dart';
 
 class AddListingScreen extends ConsumerStatefulWidget {
   const AddListingScreen({super.key});
@@ -107,14 +115,56 @@ class _AddListingScreenState extends ConsumerState<AddListingScreen> {
     }
   }
 
-  void _submitListing() {
+  Future<void> _submitListing() async {
     if (_formKey.currentState!.validate()) {
       final listingState = ref.read(listingProvider);
-      
+      final isOnline = ref.read(connectivityProvider).isOnline;
+
       if (listingState.latitude == null || listingState.longitude == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Please capture your location')),
         );
+        return;
+      }
+
+      if (!isOnline) {
+        if (kIsWeb) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Offline queueing is not supported on web. Please reconnect to submit your listing.',
+              ),
+            ),
+          );
+          return;
+        }
+
+        final imageBase64 = listingState.selectedPhotoBytes != null
+            ? base64Encode(listingState.selectedPhotoBytes!)
+            : null;
+
+        await LocalDatabase().addPendingListing({
+          'title': _titleController.text,
+          'description': _descriptionController.text,
+          'category': _selectedCategory,
+          'type': _selectedType,
+          'location_lat': listingState.latitude,
+          'location_lng': listingState.longitude,
+          'location_name': null,
+          'image_base64': imageBase64,
+        });
+
+        ref.read(listingProvider.notifier).reset();
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                  'Your listing has been saved locally and will sync automatically when you are back online.'),
+            ),
+          );
+          context.go('/browse');
+        }
         return;
       }
 
@@ -130,6 +180,7 @@ class _AddListingScreenState extends ConsumerState<AddListingScreen> {
   @override
   Widget build(BuildContext context) {
     final listingState = ref.watch(listingProvider);
+    final currentLanguage = languageProvider.language ?? 'en';
 
     ref.listen<ListingState>(listingProvider, (previous, next) {
       if (next.status == ListingStatus.success) {
@@ -145,21 +196,25 @@ class _AddListingScreenState extends ConsumerState<AddListingScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Add Listing'),
+        title: Text(AppStrings.t('add_listing_title', currentLanguage)),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
-        child: Form(
+        child: Column(
+          children: [
+            const OfflineBanner(),
+            const SizedBox(height: 12),
+            Form(
           key: _formKey,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               TextFormField(
                 controller: _titleController,
-                decoration: const InputDecoration(
-                  labelText: 'Title',
-                  prefixIcon: Icon(Icons.title),
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: AppStrings.t('add_listing_title_hint', currentLanguage),
+                  prefixIcon: const Icon(Icons.title),
+                  border: const OutlineInputBorder(),
                 ),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
@@ -172,10 +227,10 @@ class _AddListingScreenState extends ConsumerState<AddListingScreen> {
               TextFormField(
                 controller: _descriptionController,
                 maxLines: 4,
-                decoration: const InputDecoration(
-                  labelText: 'Description',
-                  prefixIcon: Icon(Icons.description),
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: AppStrings.t('add_listing_description_hint', currentLanguage),
+                  prefixIcon: const Icon(Icons.description),
+                  border: const OutlineInputBorder(),
                 ),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
@@ -193,11 +248,11 @@ class _AddListingScreenState extends ConsumerState<AddListingScreen> {
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
-                value: _selectedCategory,
-                decoration: const InputDecoration(
-                  labelText: 'Category',
-                  prefixIcon: Icon(Icons.category),
-                  border: OutlineInputBorder(),
+                initialValue: _selectedCategory,
+                decoration: InputDecoration(
+                  labelText: AppStrings.t('add_listing_category_label', currentLanguage),
+                  prefixIcon: const Icon(Icons.category),
+                  border: const OutlineInputBorder(),
                 ),
                 items: _categories.map((category) {
                   return DropdownMenuItem(
@@ -211,11 +266,11 @@ class _AddListingScreenState extends ConsumerState<AddListingScreen> {
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
-                value: _selectedType,
-                decoration: const InputDecoration(
+                initialValue: _selectedType,
+                decoration: InputDecoration(
                   labelText: 'Exchange Type',
-                  prefixIcon: Icon(Icons.swap_horiz),
-                  border: OutlineInputBorder(),
+                  prefixIcon: const Icon(Icons.swap_horiz),
+                  border: const OutlineInputBorder(),
                 ),
                 items: _types.map((type) {
                   return DropdownMenuItem(
@@ -234,9 +289,9 @@ class _AddListingScreenState extends ConsumerState<AddListingScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Photo',
-                        style: TextStyle(
+                      Text(
+                        AppStrings.t('add_listing_photo_label', currentLanguage),
+                        style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
                         ),
@@ -282,7 +337,7 @@ class _AddListingScreenState extends ConsumerState<AddListingScreen> {
                                 height: 16,
                                 child: CircularProgressIndicator(strokeWidth: 2),
                               )
-                            : const Text('Choose Photo'),
+                            : Text(AppStrings.t('add_listing_choose_photo', currentLanguage)),
                         style: ElevatedButton.styleFrom(
                           minimumSize: const Size(double.infinity, 48),
                         ),
@@ -302,9 +357,9 @@ class _AddListingScreenState extends ConsumerState<AddListingScreen> {
                         children: [
                           const Icon(Icons.location_on),
                           const SizedBox(width: 8),
-                          const Text(
-                            'Location',
-                            style: TextStyle(
+                          Text(
+                            AppStrings.t('add_listing_location_label', currentLanguage),
+                            style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
                             ),
@@ -333,7 +388,7 @@ class _AddListingScreenState extends ConsumerState<AddListingScreen> {
                       ElevatedButton.icon(
                         onPressed: _getCurrentLocation,
                         icon: const Icon(Icons.my_location),
-                        label: const Text('Capture Current Location'),
+                        label: Text(AppStrings.t('add_listing_capture_location', currentLanguage)),
                         style: ElevatedButton.styleFrom(
                           minimumSize: const Size(double.infinity, 48),
                         ),
@@ -353,13 +408,22 @@ class _AddListingScreenState extends ConsumerState<AddListingScreen> {
                 ),
                 child: listingState.status == ListingStatus.submitting ||
                         listingState.status == ListingStatus.uploading
-                    ? const CircularProgressIndicator()
-                    : const Text('Submit Listing', style: TextStyle(fontSize: 16)),
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : Text(AppStrings.t('add_listing_submit_button', currentLanguage), style: const TextStyle(fontSize: 16)),
               ),
             ],
           ),
         ),
-      ),
-    );
+      ],
+    ),
+  ),
+);
   }
 }

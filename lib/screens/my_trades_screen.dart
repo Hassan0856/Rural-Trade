@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/trades_provider.dart';
+import '../providers/language_provider.dart';
+import '../l10n/app_strings.dart';
 
 class MyTradesScreen extends ConsumerStatefulWidget {
   final String? highlightRequestId;
@@ -238,10 +240,53 @@ class _MyTradesScreenState extends ConsumerState<MyTradesScreen> {
     );
   }
 
+  Widget _buildTradesLoadingState() {
+    return ListView.separated(
+      padding: const EdgeInsets.all(16),
+      itemCount: 4,
+      separatorBuilder: (context, _) => const SizedBox(height: 16),
+      itemBuilder: (context, index) {
+        return Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 8,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(height: 16, width: 120, color: Colors.grey.shade300),
+              const SizedBox(height: 12),
+              Container(height: 14, width: 200, color: Colors.grey.shade300),
+              const SizedBox(height: 12),
+              Container(height: 14, width: 140, color: Colors.grey.shade300),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Container(height: 12, width: 80, color: Colors.grey.shade300),
+                  const SizedBox(width: 8),
+                  Container(height: 12, width: 80, color: Colors.grey.shade300),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final tradesState = ref.watch(tradesProvider);
     final highlightId = widget.highlightRequestId;
+    final currentLanguage = languageProvider.language ?? 'en';
 
     if (tradesState.status == TradesStatus.loaded && highlightId != null) {
       _scrollToHighlightIfNeeded(tradesState.trades);
@@ -258,7 +303,7 @@ class _MyTradesScreenState extends ConsumerState<MyTradesScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('My Trades'),
+        title: Text(AppStrings.t('trades_title', currentLanguage)),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -268,17 +313,18 @@ class _MyTradesScreenState extends ConsumerState<MyTradesScreen> {
         ],
       ),
       body: tradesState.status == TradesStatus.loading
-          ? const Center(child: CircularProgressIndicator())
+          ? _buildTradesLoadingState()
           : tradesState.trades.isEmpty
-              ? const Center(
+              ? Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
+                    children: const [
                       Icon(Icons.swap_horiz, size: 64, color: Colors.grey),
                       SizedBox(height: 16),
                       Text(
-                        'No trades yet',
+                        'You have no active trade requests yet.',
                         style: TextStyle(color: Colors.grey),
+                        textAlign: TextAlign.center,
                       ),
                     ],
                   ),
@@ -310,6 +356,7 @@ class _MyTradesScreenState extends ConsumerState<MyTradesScreen> {
                               .completeRequest(trade.id)),
                           onReview: () => _showReviewDialog(trade),
                           onReportIssue: () => _showReportIssueDialog(trade),
+                          currentLanguage: currentLanguage,
                         ),
                       );
                     },
@@ -327,6 +374,7 @@ class _TradeCard extends StatelessWidget {
   final VoidCallback onComplete;
   final VoidCallback onReview;
   final VoidCallback onReportIssue;
+  final String currentLanguage;
 
   const _TradeCard({
     required this.trade,
@@ -336,6 +384,7 @@ class _TradeCard extends StatelessWidget {
     required this.onComplete,
     required this.onReview,
     required this.onReportIssue,
+    required this.currentLanguage,
   });
 
   @override
@@ -436,7 +485,7 @@ class _TradeCard extends StatelessWidget {
                     ],
                   ),
                 ),
-                _StatusChip(status: trade.status),
+                _StatusChip(status: trade.status, currentLanguage: currentLanguage),
               ],
             ),
             const SizedBox(height: 12),
@@ -449,7 +498,7 @@ class _TradeCard extends StatelessWidget {
                     child: ElevatedButton.icon(
                       onPressed: onAccept,
                       icon: const Icon(Icons.check, size: 18),
-                      label: const Text('Accept'),
+                      label: Text(AppStrings.t('trades_accept_button', currentLanguage)),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.green,
                         foregroundColor: Colors.white,
@@ -461,7 +510,7 @@ class _TradeCard extends StatelessWidget {
                     child: OutlinedButton.icon(
                       onPressed: onReject,
                       icon: const Icon(Icons.close, size: 18),
-                      label: const Text('Reject'),
+                      label: Text(AppStrings.t('trades_reject_button', currentLanguage)),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: Colors.red,
                       ),
@@ -477,7 +526,7 @@ class _TradeCard extends StatelessWidget {
                 child: ElevatedButton.icon(
                   onPressed: onComplete,
                   icon: const Icon(Icons.done_all, size: 18),
-                  label: const Text('Mark as Completed'),
+                  label: Text(AppStrings.t('trades_mark_completed_button', currentLanguage)),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.blue,
                     foregroundColor: Colors.white,
@@ -493,7 +542,7 @@ class _TradeCard extends StatelessWidget {
                   child: OutlinedButton.icon(
                     onPressed: onReview,
                     icon: const Icon(Icons.star, size: 18),
-                    label: const Text('Leave a Review'),
+                    label: Text(AppStrings.t('trades_leave_review_button', currentLanguage)),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: Colors.amber.shade800,
                     ),
@@ -519,7 +568,7 @@ class _TradeCard extends StatelessWidget {
                   child: OutlinedButton.icon(
                     onPressed: onReportIssue,
                     icon: const Icon(Icons.report, size: 18),
-                    label: const Text('Report an Issue'),
+                    label: Text(AppStrings.t('trades_report_issue_button', currentLanguage)),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: Colors.red,
                     ),
@@ -546,8 +595,9 @@ class _TradeCard extends StatelessWidget {
 
 class _StatusChip extends StatelessWidget {
   final String status;
+  final String currentLanguage;
 
-  const _StatusChip({required this.status});
+  const _StatusChip({required this.status, required this.currentLanguage});
 
   @override
   Widget build(BuildContext context) {
@@ -559,22 +609,22 @@ class _StatusChip extends StatelessWidget {
       case 'pending':
         backgroundColor = Colors.orange.shade100;
         textColor = Colors.orange.shade700;
-        label = 'Pending';
+        label = AppStrings.t('trades_status_pending', currentLanguage);
         break;
       case 'accepted':
         backgroundColor = Colors.blue.shade100;
         textColor = Colors.blue.shade700;
-        label = 'Accepted';
+        label = AppStrings.t('trades_status_accepted', currentLanguage);
         break;
       case 'rejected':
         backgroundColor = Colors.red.shade100;
         textColor = Colors.red.shade700;
-        label = 'Rejected';
+        label = AppStrings.t('trades_status_rejected', currentLanguage);
         break;
       case 'completed':
         backgroundColor = Colors.green.shade100;
         textColor = Colors.green.shade700;
-        label = 'Completed';
+        label = AppStrings.t('trades_status_completed', currentLanguage);
         break;
       default:
         backgroundColor = Colors.grey.shade100;

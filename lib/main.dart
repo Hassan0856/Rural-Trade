@@ -7,15 +7,18 @@ import 'services/supabase_service.dart';
 import 'providers/language_provider.dart';
 import 'providers/onboarding_provider.dart';
 import 'app_theme.dart';
+import 'l10n/app_strings.dart';
 import 'screens/auth/phone_screen.dart';
 import 'screens/auth/otp_screen.dart';
 import 'screens/auth/profile_setup_screen.dart';
+import 'screens/auth/profile_retry_screen.dart';
 import 'screens/listings/add_listing_screen.dart';
 import 'screens/listings/listing_success_screen.dart';
 import 'screens/listings/browse_screen.dart';
 import 'screens/listings/resource_detail_screen.dart';
 import 'screens/onboarding_screen.dart';
 import 'screens/profile_screen.dart';
+import 'services/offline_sync_service.dart';
 import 'screens/impact_stats_screen.dart';
 import 'screens/my_trades_screen.dart';
 import 'screens/language_select_screen.dart';
@@ -54,6 +57,11 @@ void main() async {
   
   // Wait for session restore + profile check before routing
   await onboardingProvider.initAsync();
+
+  // Start background offline sync for pending listings on supported platforms.
+  if (!kIsWeb) {
+    OfflineSyncService().initialize();
+  }
   
   runApp(const ProviderScope(child: MyApp()));
 }
@@ -71,6 +79,7 @@ class MyApp extends ConsumerWidget {
         final authReady = onboardingProvider.authReady;
         final signedIn = onboardingProvider.isSignedIn;
         final profileComplete = onboardingProvider.profileComplete;
+        final profileCheckFailed = onboardingProvider.profileCheckFailed;
 
         const unauthenticatedPaths = {
           '/welcome',
@@ -81,7 +90,7 @@ class MyApp extends ConsumerWidget {
         };
 
         if (kDebugMode) {
-          print('[GoRouter Redirect] Path: $currentPath, authReady: $authReady, signedIn: $signedIn, profileComplete: $profileComplete');
+          print('[GoRouter Redirect] Path: $currentPath, authReady: $authReady, signedIn: $signedIn, profileComplete: $profileComplete, profileCheckFailed: $profileCheckFailed');
         }
 
         if (!authReady) {
@@ -95,6 +104,14 @@ class MyApp extends ConsumerWidget {
           return '/welcome';
         }
 
+        // Handle null profileComplete - show retry screen
+        if (profileComplete == null) {
+          if (currentPath != '/profile-retry') {
+            return '/profile-retry';
+          }
+          return null;
+        }
+
         if (!profileComplete) {
           if (currentPath != '/profile-setup') {
             return '/profile-setup';
@@ -103,7 +120,8 @@ class MyApp extends ConsumerWidget {
         }
 
         if (unauthenticatedPaths.contains(currentPath) ||
-            currentPath == '/profile-setup') {
+            currentPath == '/profile-setup' ||
+            currentPath == '/profile-retry') {
           return '/home';
         }
 
@@ -134,6 +152,10 @@ class MyApp extends ConsumerWidget {
         GoRoute(
           path: '/profile-setup',
           builder: (context, state) => const ProfileSetupScreen(),
+        ),
+        GoRoute(
+          path: '/profile-retry',
+          builder: (context, state) => const ProfileRetryScreen(),
         ),
         
         // Bottom navigation shell (authenticated routes)
@@ -216,7 +238,7 @@ class MyApp extends ConsumerWidget {
     );
 
     return MaterialApp.router(
-      title: 'Village Exchange',
+      title: 'Rural Trader',
       theme: AppTheme.lightTheme,
       routerConfig: router,
     );
@@ -230,27 +252,28 @@ class ScaffoldWithNavBar extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final currentLanguage = languageProvider.language ?? 'en';
     return Scaffold(
       body: navigationShell,
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: navigationShell.currentIndex,
         onTap: (index) => navigationShell.goBranch(index),
-        items: const [
+        items: [
           BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: 'Home',
+            icon: const Icon(Icons.home),
+            label: AppStrings.t('nav_home', currentLanguage),
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.search),
-            label: 'Browse',
+            icon: const Icon(Icons.search),
+            label: AppStrings.t('nav_browse', currentLanguage),
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.add_circle),
-            label: 'Add Listing',
+            icon: const Icon(Icons.add_circle),
+            label: AppStrings.t('nav_add_listing', currentLanguage),
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: 'Profile',
+            icon: const Icon(Icons.person),
+            label: AppStrings.t('nav_profile', currentLanguage),
           ),
         ],
       ),

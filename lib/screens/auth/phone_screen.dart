@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/onboarding_provider.dart';
+import '../../l10n/app_strings.dart';
 
 class PhoneScreen extends ConsumerStatefulWidget {
   const PhoneScreen({super.key});
@@ -29,6 +31,7 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
+    final currentLanguage = onboardingProvider.currentLanguage;
 
     ref.listen<AuthState>(authProvider, (previous, next) {
       if (next.status == AuthStatus.otpSent) {
@@ -45,7 +48,7 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
     });
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Login')),
+      appBar: AppBar(title: Text(AppStrings.t('login_title', currentLanguage))),
       body: Padding(
         padding: const EdgeInsets.all(24.0),
         child: Form(
@@ -54,20 +57,20 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text(
-                'Enter your phone number',
-                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+              Text(
+                AppStrings.t('login_title', currentLanguage),
+                style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 32),
               TextFormField(
                 controller: _phoneController,
                 keyboardType: TextInputType.phone,
-                decoration: const InputDecoration(
-                  labelText: 'Phone Number',
+                decoration: InputDecoration(
+                  labelText: AppStrings.t('login_phone_hint', currentLanguage),
                   hintText: '+91 98765 43210',
-                  prefixIcon: Icon(Icons.phone),
-                  border: OutlineInputBorder(),
+                  prefixIcon: const Icon(Icons.phone),
+                  border: const OutlineInputBorder(),
                 ),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
@@ -87,7 +90,7 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
                 ),
                 child: authState.status == AuthStatus.loading
                     ? const CircularProgressIndicator()
-                    : const Text('Send OTP', style: TextStyle(fontSize: 16)),
+                    : Text(AppStrings.t('login_send_otp_button', currentLanguage), style: const TextStyle(fontSize: 16)),
               ),
             ],
           ),

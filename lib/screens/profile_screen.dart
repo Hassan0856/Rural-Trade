@@ -5,6 +5,8 @@ import '../services/supabase_service.dart';
 import '../providers/user_listings_provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/trades_provider.dart';
+import '../providers/language_provider.dart';
+import '../l10n/app_strings.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -147,6 +149,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final userListingsState = ref.watch(userListingsProvider);
     final tradesState = ref.watch(tradesProvider);
     final userId = SupabaseService.client.auth.currentUser?.id;
+    final currentLanguage = languageProvider.language ?? 'en';
 
     ref.listen<UserListingsState>(userListingsProvider, (previous, next) {
       if (next.errorMessage != null) {
@@ -168,7 +171,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('My Profile'),
+        title: Text(AppStrings.t('profile_title', currentLanguage)),
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),

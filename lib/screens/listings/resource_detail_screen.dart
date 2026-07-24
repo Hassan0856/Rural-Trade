@@ -2,7 +2,10 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../services/supabase_service.dart';
+import '../../services/ai_service.dart';
 import '../../models/listing_enums.dart';
+import '../../providers/language_provider.dart';
+import '../../l10n/app_strings.dart';
 
 class ResourceDetailScreen extends StatefulWidget {
   final String listingId;
@@ -20,6 +23,9 @@ class _ResourceDetailScreenState extends State<ResourceDetailScreen> {
   Map<String, dynamic>? _ownerRating;
   Map<String, dynamic>? _listing;
   bool _isLoading = true;
+  String? _matchExplanation;
+  String? _trustSummary;
+  final AiService _aiService = AiService();
 
   // Earthy color palette
   static const Color _earthBrown = Color(0xFF8B5A2B);
@@ -49,6 +55,7 @@ class _ResourceDetailScreenState extends State<ResourceDetailScreen> {
         });
         _checkIfAlreadyRequested();
         _fetchOwnerData();
+        _fetchMatchExplanation();
       } else if (mounted) {
         setState(() {
           _isLoading = false;
@@ -89,23 +96,72 @@ class _ResourceDetailScreenState extends State<ResourceDetailScreen> {
           .select('rating')
           .eq('reviewee_id', ownerId);
 
+      int reviewCount = 0;
+      double averageRating = 0.0;
+      int complaintCount = 0;
+
       if (reviewsResponse.isNotEmpty && mounted) {
         final reviews = List<Map<String, dynamic>>.from(reviewsResponse);
+        reviewCount = reviews.length;
         final totalRating = reviews.fold<double>(
           0, 
           (sum, review) => sum + ((review['rating'] as num?)?.toDouble() ?? 0.0)
         );
-        final averageRating = totalRating / reviews.length;
+        averageRating = totalRating / reviewCount;
 
         setState(() {
           _ownerRating = {
             'averageRating': averageRating,
-            'reviewCount': reviews.length,
+            'reviewCount': reviewCount,
           };
         });
       }
+
+      // Generate AI trust summary
+      if (mounted) {
+        final trustResult = await _aiService.trustSummary(
+          ratingAvg: averageRating,
+          ratingCount: reviewCount,
+          complaintCount: complaintCount,
+          languageCode: languageProvider.language,
+        );
+        if (trustResult != null) {
+          setState(() {
+            _trustSummary = trustResult;
+          });
+        }
+      }
     } catch (e) {
       // Error fetching owner data
+    }
+  }
+
+  Future<void> _fetchMatchExplanation() async {
+    if (_listing == null) return;
+    
+    try {
+      // Fetch nearby requests
+      final requestsResponse = await SupabaseService.client
+          .from('requests')
+          .select('*, listings(*)')
+          .eq('status', 'pending')
+          .limit(5);
+
+      if (requestsResponse.isNotEmpty && mounted) {
+        final nearbyRequests = List<Map<String, dynamic>>.from(requestsResponse);
+        final matchResult = await _aiService.matchExplanation(
+          listing: _listing!,
+          nearbyRequests: nearbyRequests,
+          languageCode: languageProvider.language,
+        );
+        if (matchResult != null) {
+          setState(() {
+            _matchExplanation = matchResult;
+          });
+        }
+      }
+    } catch (e) {
+      // Error fetching match explanation - silently fail
     }
   }
 
@@ -294,13 +350,14 @@ class _ResourceDetailScreenState extends State<ResourceDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final currentLanguage = languageProvider.language ?? 'en';
     if (_isLoading) {
       return Scaffold(
         backgroundColor: _earthBeige,
         appBar: AppBar(
           backgroundColor: _earthGreen,
           foregroundColor: Colors.white,
-          title: const Text('Resource Details'),
+          title: Text(AppStrings.t('detail_title', currentLanguage)),
           elevation: 2,
         ),
         body: const Center(child: CircularProgressIndicator()),
@@ -313,7 +370,7 @@ class _ResourceDetailScreenState extends State<ResourceDetailScreen> {
         appBar: AppBar(
           backgroundColor: _earthGreen,
           foregroundColor: Colors.white,
-          title: const Text('Resource Details'),
+          title: Text(AppStrings.t('detail_title', currentLanguage)),
           elevation: 2,
         ),
         body: const Center(child: Text('Listing not found')),
@@ -334,7 +391,7 @@ class _ResourceDetailScreenState extends State<ResourceDetailScreen> {
       appBar: AppBar(
         backgroundColor: _earthGreen,
         foregroundColor: Colors.white,
-        title: const Text('Resource Details'),
+        title: Text(AppStrings.t('detail_title', currentLanguage)),
         elevation: 2,
       ),
       body: SingleChildScrollView(
@@ -459,9 +516,9 @@ class _ResourceDetailScreenState extends State<ResourceDetailScreen> {
                   const SizedBox(height: 20),
 
                   // Description
-                  const Text(
-                    'Description',
-                    style: TextStyle(
+                  Text(
+                    AppStrings.t('detail_description_label', currentLanguage),
+                    style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
                       color: _earthDarkGreen,
@@ -477,6 +534,44 @@ class _ResourceDetailScreenState extends State<ResourceDetailScreen> {
                     ),
                   ),
                   const SizedBox(height: 24),
+
+                  // AI Match Explanation Card
+                  if (_matchExplanation != null)
+                    Card(
+                      color: Colors.blue.shade50,
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(Icons.lightbulb, color: Colors.blue.shade700, size: 20),
+                                const SizedBox(width: 8),
+                                Text(
+                                  AppStrings.t('detail_ai_match_title', currentLanguage),
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.blue.shade700,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              _matchExplanation!,
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Colors.blue.shade900,
+                                height: 1.4,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  if (_matchExplanation != null) const SizedBox(height: 24),
 
                   // Owner Info
                   Container(
@@ -504,9 +599,9 @@ class _ResourceDetailScreenState extends State<ResourceDetailScreen> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const Text(
-                                    'Owner',
-                                    style: TextStyle(
+                                  Text(
+                                    AppStrings.t('detail_owner_label', currentLanguage),
+                                    style: const TextStyle(
                                       fontSize: 12,
                                       color: Colors.grey,
                                     ),
@@ -599,6 +694,18 @@ class _ResourceDetailScreenState extends State<ResourceDetailScreen> {
                               ),
                           ],
                         ),
+                        const SizedBox(height: 8),
+                        
+                        // AI Trust Summary
+                        if (_trustSummary != null)
+                          Text(
+                            _trustSummary!,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey.shade700,
+                              fontStyle: FontStyle.italic,
+                            ),
+                          ),
                       ],
                     ),
                   ),
@@ -642,12 +749,12 @@ class _ResourceDetailScreenState extends State<ResourceDetailScreen> {
                                       Text('Request Sent'),
                                     ],
                                   )
-                                : const Row(
+                                : Row(
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
-                                      Icon(Icons.send),
-                                      SizedBox(width: 8),
-                                      Text('Request This'),
+                                      const Icon(Icons.send),
+                                      const SizedBox(width: 8),
+                                      Text(AppStrings.t('detail_request_button', currentLanguage)),
                                     ],
                                   ),
                       ),

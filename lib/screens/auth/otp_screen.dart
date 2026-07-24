@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/onboarding_provider.dart';
+import '../../l10n/app_strings.dart';
 
 class OtpScreen extends ConsumerStatefulWidget {
   const OtpScreen({super.key});
@@ -30,6 +32,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
+    final currentLanguage = onboardingProvider.currentLanguage;
 
     ref.listen<AuthState>(authProvider, (previous, next) {
       if (next.status == AuthStatus.authenticated) {
@@ -50,7 +53,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
     });
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Verify OTP')),
+      appBar: AppBar(title: Text(AppStrings.t('otp_title', currentLanguage))),
       body: Padding(
         padding: const EdgeInsets.all(24.0),
         child: Form(
@@ -59,9 +62,9 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text(
-                'Enter the OTP sent to your phone',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              Text(
+                AppStrings.t('otp_title', currentLanguage),
+                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 16),
@@ -74,7 +77,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
                 Padding(
                   padding: const EdgeInsets.only(top: 8.0),
                   child: Text(
-                    'Demo code: 123456',
+                    AppStrings.t('otp_demo_code_label', currentLanguage),
                     style: TextStyle(
                       fontSize: 12,
                       color: Colors.grey[600],
@@ -114,7 +117,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
                 ),
                 child: authState.status == AuthStatus.loading
                     ? const CircularProgressIndicator()
-                    : const Text('Verify OTP', style: TextStyle(fontSize: 16)),
+                    : Text(AppStrings.t('otp_verify_button', currentLanguage), style: const TextStyle(fontSize: 16)),
               ),
               const SizedBox(height: 16),
               TextButton(
@@ -123,7 +126,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
                     : () {
                         ref.read(authProvider.notifier).sendOtp(authState.phoneNumber!);
                       },
-                child: const Text('Resend OTP'),
+                child: Text(AppStrings.t('otp_resend_button', currentLanguage)),
               ),
             ],
           ),

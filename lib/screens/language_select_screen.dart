@@ -41,6 +41,7 @@ class LanguageSelectScreen extends StatelessWidget {
                       await languageService.setLanguage(entry.key);
                       languageProvider.setLanguage(entry.key);
                       onboardingProvider.setLanguageSelected(true);
+                      onboardingProvider.setCurrentLanguage(entry.key);
                       if (context.mounted) {
                         context.go('/onboarding');
                       }

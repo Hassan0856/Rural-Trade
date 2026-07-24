@@ -23,7 +23,7 @@ class _ImpactStatsScreenState extends ConsumerState<ImpactStatsScreen> {
     final statsState = ref.read(impactStatsProvider);
     
     final shareText = '''
-🌾 Village Exchange Impact
+🌾 Rural Trader Impact
 
 📊 Total Listings Shared: ${statsState.totalListings}
 ✅ Requests Fulfilled: ${statsState.totalRequestsFulfilled}
@@ -82,7 +82,7 @@ Together, we're building stronger village communities!
             ),
             const SizedBox(height: 8),
             Text(
-              'See how Village Exchange is helping communities share resources and save time.',
+              'See how Rural Trader is helping communities share resources and save time.',
               style: TextStyle(
                 fontSize: 14,
                 color: Colors.grey.shade600,
@@ -175,7 +175,7 @@ class _ImpactCard extends StatelessWidget {
                   Icon(Icons.agriculture, color: Colors.white, size: 32),
                   const SizedBox(width: 12),
                   const Text(
-                    'Village Exchange',
+                    'Rural Trader',
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 20,

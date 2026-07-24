@@ -1,51 +1,50 @@
-import 'dart:convert';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:http/http.dart' as http;
+import 'dart:async';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../l10n/app_strings.dart';
 
 class AiService {
-  static const _model = 'gemini-2.0-flash';
-
-  String? get _apiKey {
-    final key = dotenv.env['GEMINI_API_KEY'];
-    if (key == null || key.isEmpty || key.startsWith('YOUR_')) return null;
-    return key;
-  }
-
-  Future<String?> _generate(String prompt) async {
-    final apiKey = _apiKey;
-    if (apiKey == null) return null;
-
+  Future<String?> _generate(String prompt, {String? languageCode}) async {
     try {
-      final url = Uri.parse(
-        'https://generativelanguage.googleapis.com/v1beta/models/$_model:generateContent?key=$apiKey',
-      );
+      // Prepend language instruction if non-English (stronger adherence at start)
+      final languageInstruction = languageCode != null
+          ? AppStrings.languageInstruction(languageCode)
+          : null;
+      final fullPrompt = languageInstruction != null
+          ? '$languageInstruction\n\n$prompt'
+          : prompt;
 
-      final response = await http
-          .post(
-            url,
-            headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({
-              'contents': [
-                {
-                  'parts': [
-                    {'text': prompt},
-                  ],
-                },
-              ],
-              'generationConfig': {
-                'maxOutputTokens': 120,
-                'temperature': 0.6,
-              },
-            }),
-          )
-          .timeout(const Duration(seconds: 12));
+      // DIAGNOSIS: Print the exact prompt being sent
+      print('[AI_SERVICE] languageCode: $languageCode');
+      print('[AI_SERVICE] languageInstruction: $languageInstruction');
+      print('[AI_SERVICE] fullPrompt: $fullPrompt');
 
-      if (response.statusCode != 200) return null;
+      Future<String?> _invoke() async {
+        final res = await Supabase.instance.client.functions.invoke(
+          'gemini-generate',
+          body: {'prompt': fullPrompt},
+        );
 
-      final data = jsonDecode(response.body) as Map<String, dynamic>;
-      final text = data['candidates']?[0]?['content']?['parts']?[0]?['text'];
-      if (text == null) return null;
-      return text.toString().trim();
+        // Check if response status is 200
+        if (res.status != 200) {
+          return null;
+        }
+
+        final text = (res.data is Map) ? res.data['text'] as String? : null;
+        if (text == null || text.isEmpty) return null;
+        return text.trim();
+      }
+
+      // First attempt
+      var result = await _invoke();
+      if (result != null) return result;
+
+      // Retry once after 1 second
+      await Future.delayed(const Duration(seconds: 1));
+      result = await _invoke();
+      if (result != null) return result;
+
+      // Both attempts failed
+      return null;
     } catch (_) {
       return null;
     }
@@ -55,6 +54,7 @@ class AiService {
   Future<String?> matchExplanation({
     required Map<String, dynamic> listing,
     required List<Map<String, dynamic>> nearbyRequests,
+    String? languageCode,
   }) async {
     if (nearbyRequests.isEmpty) return null;
 
@@ -73,14 +73,14 @@ class AiService {
         .join('\n');
 
     final prompt =
-        'You help villagers share farm equipment and produce on Village Exchange. '
+        'You help villagers share farm equipment and produce on Rural Trader. '
         'In one short, friendly sentence (max 25 words), explain why this listing '
         'might be a good match for nearby open requests. No bullet points.\n\n'
         'Listing: "$title" (category: $category)\n'
         'Description: $description\n\n'
         'Nearby open requests:\n$requestSummary';
 
-    return _generate(prompt);
+    return _generate(prompt, languageCode: languageCode);
   }
 
   /// One sentence trust summary for a trader.
@@ -88,6 +88,7 @@ class AiService {
     required double ratingAvg,
     required int ratingCount,
     required int complaintCount,
+    String? languageCode,
   }) async {
     final prompt =
         'Write one short, friendly sentence (max 20 words) summarizing this '
@@ -98,12 +99,13 @@ class AiService {
         'Review count: $ratingCount\n'
         'Complaint count: $complaintCount';
 
-    return _generate(prompt);
+    return _generate(prompt, languageCode: languageCode);
   }
 
   /// Friendly alert when dry weather meets nearby produce listings.
   Future<String?> demandForecastAlert({
     required int produceListingCount,
+    String? languageCode,
   }) async {
     final prompt =
         'Write one short, friendly sentence (max 25 words) alerting a villager '
@@ -111,6 +113,6 @@ class AiService {
         'nearby produce listings — suggest checking water pump availability. '
         'Keep it warm and practical, no bullet points.';
 
-    return _generate(prompt);
+    return _generate(prompt, languageCode: languageCode);
   }
 }
