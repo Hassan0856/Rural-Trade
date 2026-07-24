@@ -2,25 +2,28 @@
 //
 // DEMO AUTH — phone number + fixed demo OTP, nothing else.
 //
-// Why this exists: real SMS OTP needs a paid provider, and Indian numbers
-// additionally need TRAI DLT registration. Neither is feasible in a 48h
-// hackathon.
+// This version adds retry-with-backoff around the profile-completion
+// check, plus a persisted local flag as a fast path for returning users.
 //
-// Why this version (not the earlier ones):
-//   - Anonymous sign-in gives a NEW auth.uid() every session, which
-//     collided with the UNIQUE constraint on users.phone.
-//   - Client-side signUp() respects the project's "Confirm email" setting,
-//     and any account created while that setting was on is permanently
-//     stuck unconfirmed — no client code can fix that after the fact.
-// This version calls the "ensure-demo-user" Edge Function, which creates
-// the account server-side with email_confirm forced true. That bypasses
-// the confirmation requirement at creation time, so it cannot fail this
-// way again regardless of the dashboard setting.
+// Why: Supabase's ongoing migration to asymmetric (ES256) JWT signing
+// causes intermittent "invalid JWT" verification failures — the same
+// issue diagnosed earlier for the ensure-demo-user edge function. When
+// that hit the profile-completion check, an earlier version of this file
+// defaulted to "treat as complete" on any error, to avoid bouncing
+// RETURNING users back to a blank setup screen on a transient glitch.
+// That default was wrong for BRAND NEW users: their very first check can
+// hit the same glitch and get silently shipped to Home with placeholder
+// data still in the users row.
 //
-// Identity is still deterministic: the same phone number always maps to
-// the same email/password, therefore the same auth.uid(), therefore the
-// same row in the users table. Every RLS policy in 01_schema.sql works
-// unchanged, because auth.uid() is a real, confirmed session.
+// Fix: never guess on an unresolved error, in either direction.
+//   - Returning users: a local SharedPreferences flag, set only once a
+//     real completeProfile() call has succeeded, short-circuits the
+//     check entirely — no network call, so no exposure to this flakiness
+//     at all after the first successful setup.
+//   - New users: retry the Supabase check up to 3 times with backoff
+//     before giving up. If it still fails, return null — the caller must
+//     show a "couldn't verify your account, tap to retry" state, never
+//     silently choose Home or profile setup.
 //
 // SECURITY NOTE: demo-grade only. The password is derivable from the
 // phone number. Fine for a hackathon demo, not for production. To ship
@@ -28,6 +31,7 @@
 // supabase.auth.signInWithOtp(phone: ...) / verifyOTP(type: OtpType.sms)
 // with a real SMS provider configured. Nothing else in the app changes.
 
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AuthService {
@@ -35,6 +39,7 @@ class AuthService {
 
   static const String demoOtp = '123456';
   static const String _emailDomain = 'village-exchange.app';
+  static const String _profileCompletedKey = 'profile_completed';
 
   static String normalisePhone(String input) {
     var digits = input.replaceAll(RegExp(r'[^0-9]'), '');
@@ -50,6 +55,9 @@ class AuthService {
 
   static String _syntheticPassword(String phone) =>
       'vx_${_digits(phone)}_demo';
+
+  Future<void> _backoff(int attempt) =>
+      Future.delayed(Duration(seconds: 1 << attempt)); // 1s, 2s
 
   /// Step 1 — validates the number. No network call needed; the demo code
   /// is fixed and shown on screen in debug builds.
@@ -88,7 +96,7 @@ class AuthService {
       );
       if (res.status != 200) {
         final msg = (res.data is Map) ? res.data['error'] : null;
-        throw AuthException(msg ?? 'Could not verify this number ($res.status).');
+        throw AuthException(msg ?? 'Could not verify this number.');
       }
     } on FunctionException catch (e) {
       throw AuthException(
@@ -97,7 +105,6 @@ class AuthService {
       );
     }
 
-    // The account is now guaranteed to exist and be confirmed.
     final res = await _client.auth.signInWithPassword(
       email: email,
       password: password,
@@ -110,15 +117,34 @@ class AuthService {
     return _ensureProfileRow(uid: user.id, phone: phone);
   }
 
+  /// Creates the profile row if missing, retrying on transient errors
+  /// (see file header). Returns true if profile setup is still needed.
+  /// Throws AuthException only after retries are exhausted — this always
+  /// surfaces as a visible error on the OTP screen, never a silent skip.
   Future<bool> _ensureProfileRow({
     required String uid,
     required String phone,
   }) async {
-    final existing = await _client
-        .from('users')
-        .select('id, name, village')
-        .eq('id', uid)
-        .maybeSingle();
+    Map<String, dynamic>? existing;
+    Object? lastError;
+
+    for (var attempt = 0; attempt < 3; attempt++) {
+      try {
+        existing = await _client
+            .from('users')
+            .select('id, name, village')
+            .eq('id', uid)
+            .maybeSingle();
+        lastError = null;
+        break;
+      } catch (e) {
+        lastError = e;
+        if (attempt < 2) await _backoff(attempt);
+      }
+    }
+    if (lastError != null) {
+      throw AuthException('Could not verify your account. Please try again.');
+    }
 
     if (existing != null) {
       final name = existing['name'] as String?;
@@ -129,15 +155,29 @@ class AuthService {
           village == 'Unknown';
     }
 
-    await _client.from('users').insert({
-      'id': uid, // MUST equal auth.uid(), or every RLS policy denies this user
-      'name': 'New villager',
-      'phone': phone,
-      'village': 'Unknown',
-    });
-    return true;
+    for (var attempt = 0; attempt < 3; attempt++) {
+      try {
+        // id MUST equal auth.uid(), or every RLS policy on users,
+        // listings and requests will silently deny this user.
+        await _client.from('users').insert({
+          'id': uid,
+          'name': 'New villager',
+          'phone': phone,
+          'village': 'Unknown',
+        });
+        return true;
+      } catch (e) {
+        if (attempt == 2) {
+          throw AuthException(
+              'Could not set up your profile. Please try again.');
+        }
+        await _backoff(attempt);
+      }
+    }
+    return true; // unreachable
   }
 
+  /// Called by the profile setup screen on save.
   Future<void> completeProfile({
     required String name,
     required String village,
@@ -155,6 +195,55 @@ class AuthService {
       if (lat != null) 'location_lat': lat,
       if (lng != null) 'location_lng': lng,
     }).eq('id', uid);
+
+    // Fast path for every future check on this device — see
+    // checkProfileComplete() below.
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_profileCompletedKey, true);
+  }
+
+  /// The single source of truth for routing after sign-in. Call this
+  /// instead of querying "users" directly from router/state code.
+  ///
+  /// Returns:
+  ///   true  -> profile is complete, go to Home
+  ///   false -> profile is incomplete, go to profile setup
+  ///   null  -> could not be determined after retries. Do NOT guess —
+  ///            show a "couldn't verify your account, tap to retry" state
+  ///            and call this again when the user retries.
+  Future<bool?> checkProfileComplete() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (prefs.getBool(_profileCompletedKey) == true) {
+      return true; // no network call — immune to the JWT flakiness
+    }
+
+    final uid = _client.auth.currentUser?.id;
+    if (uid == null) return false;
+
+    for (var attempt = 0; attempt < 3; attempt++) {
+      try {
+        final row = await _client
+            .from('users')
+            .select('name, village')
+            .eq('id', uid)
+            .maybeSingle();
+
+        if (row == null) return false;
+
+        final complete = row['name'] != null &&
+            row['village'] != null &&
+            row['name'] != 'New villager' &&
+            row['village'] != 'Unknown';
+
+        if (complete) {
+          await prefs.setBool(_profileCompletedKey, true);
+        }
+        return complete;
+      } catch (_) {
+        if (attempt < 2) await _backoff(attempt);
+      }
+    }
+    return null; // exhausted retries — caller must not guess
   }
 
   Future<void> signOut() => _client.auth.signOut();
