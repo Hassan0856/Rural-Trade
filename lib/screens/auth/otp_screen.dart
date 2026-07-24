@@ -1,5 +1,7 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../providers/auth_provider.dart';
 
 class OtpScreen extends ConsumerStatefulWidget {
@@ -31,9 +33,13 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
 
     ref.listen<AuthState>(authProvider, (previous, next) {
       if (next.status == AuthStatus.authenticated) {
-        Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
+        if (mounted) {
+          context.go('/home');
+        }
       } else if (next.status == AuthStatus.needsProfile) {
-        Navigator.pushNamed(context, '/profile-setup');
+        if (mounted) {
+          context.go('/profile-setup');
+        }
       }
       if (next.errorMessage != null) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -64,6 +70,18 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
                 style: const TextStyle(fontSize: 16, color: Colors.grey),
                 textAlign: TextAlign.center,
               ),
+              if (kDebugMode)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8.0),
+                  child: Text(
+                    'Demo code: 123456',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey[600],
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ),
               const SizedBox(height: 32),
               TextFormField(
                 controller: _otpController,

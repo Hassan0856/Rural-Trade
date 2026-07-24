@@ -1,5 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'dart:io';
+import 'dart:typed_data';
 import '../services/supabase_service.dart';
 
 enum ListingStatus {
@@ -13,7 +13,8 @@ enum ListingStatus {
 class ListingState {
   final ListingStatus status;
   final String? errorMessage;
-  final File? selectedPhoto;
+  final Uint8List? selectedPhotoBytes;
+  final String? selectedPhotoName;
   final String? photoUrl;
   final double? latitude;
   final double? longitude;
@@ -21,7 +22,8 @@ class ListingState {
   ListingState({
     this.status = ListingStatus.initial,
     this.errorMessage,
-    this.selectedPhoto,
+    this.selectedPhotoBytes,
+    this.selectedPhotoName,
     this.photoUrl,
     this.latitude,
     this.longitude,
@@ -30,7 +32,8 @@ class ListingState {
   ListingState copyWith({
     ListingStatus? status,
     String? errorMessage,
-    File? selectedPhoto,
+    Uint8List? selectedPhotoBytes,
+    String? selectedPhotoName,
     String? photoUrl,
     double? latitude,
     double? longitude,
@@ -38,7 +41,8 @@ class ListingState {
     return ListingState(
       status: status ?? this.status,
       errorMessage: errorMessage,
-      selectedPhoto: selectedPhoto ?? this.selectedPhoto,
+      selectedPhotoBytes: selectedPhotoBytes ?? this.selectedPhotoBytes,
+      selectedPhotoName: selectedPhotoName ?? this.selectedPhotoName,
       photoUrl: photoUrl ?? this.photoUrl,
       latitude: latitude ?? this.latitude,
       longitude: longitude ?? this.longitude,
@@ -49,8 +53,8 @@ class ListingState {
 class ListingNotifier extends StateNotifier<ListingState> {
   ListingNotifier() : super(ListingState());
 
-  void selectPhoto(File photo) {
-    state = state.copyWith(selectedPhoto: photo);
+  void selectPhoto(Uint8List bytes, String name) {
+    state = state.copyWith(selectedPhotoBytes: bytes, selectedPhotoName: name);
   }
 
   void setLocation(double latitude, double longitude) {
@@ -68,10 +72,12 @@ class ListingNotifier extends StateNotifier<ListingState> {
     try {
       String? photoUrl;
       
-      if (state.selectedPhoto != null) {
+      if (state.selectedPhotoBytes != null && state.selectedPhotoName != null) {
         state = state.copyWith(status: ListingStatus.uploading);
-        final fileName = 'listing_${DateTime.now().millisecondsSinceEpoch}.jpg';
-        photoUrl = await SupabaseService.uploadPhoto(state.selectedPhoto!, fileName);
+        photoUrl = await SupabaseService.uploadPhotoBytes(
+          bytes: state.selectedPhotoBytes!,
+          fileName: state.selectedPhotoName!,
+        );
       }
 
       await SupabaseService.createListing(

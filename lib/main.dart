@@ -1,9 +1,12 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:go_router/go_router.dart';
 import 'services/supabase_service.dart';
-import 'providers/auth_provider.dart';
+import 'providers/language_provider.dart';
+import 'providers/onboarding_provider.dart';
+import 'app_theme.dart';
 import 'screens/auth/phone_screen.dart';
 import 'screens/auth/otp_screen.dart';
 import 'screens/auth/profile_setup_screen.dart';
@@ -15,173 +18,240 @@ import 'screens/onboarding_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/impact_stats_screen.dart';
 import 'screens/my_trades_screen.dart';
+import 'screens/language_select_screen.dart';
+import 'screens/home_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await SupabaseService.initialize();
+  
+  // Load all first-launch state from SharedPreferences at startup
+  final prefs = await SharedPreferences.getInstance();
+  final language = prefs.getString('app_language');
+  final onboardingCompleted = prefs.getBool('onboarding_completed') ?? false;
+  
+  // Initialize language provider with loaded value
+  if (language != null) {
+    languageProvider.setLanguage(language);
+    onboardingProvider.setLanguageSelected(true);
+  }
+  
+  // Initialize onboarding provider with loaded value
+  if (onboardingCompleted) {
+    onboardingProvider.setOnboardingSeen(true);
+  }
+  
+  // Wrap Supabase initialization in 5-second timeout
+  try {
+    await SupabaseService.initialize().timeout(
+      const Duration(seconds: 5),
+      onTimeout: () {
+        // If timeout, sign out to clear bad token and continue
+        SupabaseService.auth.signOut();
+        throw Exception('Supabase initialization timed out');
+      },
+    );
+  } catch (e) {
+    // If initialization fails or times out, sign out and continue
+    try {
+      await SupabaseService.auth.signOut();
+    } catch (_) {
+      // Ignore signOut errors
+    }
+  }
+  
+  // Initialize onboarding provider after Supabase is ready
+  onboardingProvider.init();
+  
   runApp(const ProviderScope(child: MyApp()));
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends ConsumerWidget {
   const MyApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Village Exchange',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.green),
-        useMaterial3: true,
-      ),
-      initialRoute: '/',
-      routes: {
-        '/': (context) => const AuthWrapper(),
-        '/onboarding': (context) => const OnboardingScreen(),
-        '/phone': (context) => const PhoneScreen(),
-        '/otp': (context) => const OtpScreen(),
-        '/profile-setup': (context) => const ProfileSetupScreen(),
-        '/home': (context) => const HomeScreen(),
-        '/profile': (context) => const ProfileScreen(),
-        '/impact-stats': (context) => const ImpactStatsScreen(),
-        '/my-trades': (context) => const MyTradesScreen(),
-        '/browse': (context) => const BrowseScreen(),
-        '/resource-detail': (context) {
-          final args = ModalRoute.of(context)?.settings.arguments;
-          if (args is Map<String, dynamic>) {
-            return ResourceDetailScreen(listing: args);
+  Widget build(BuildContext context, WidgetRef ref) {
+    final router = GoRouter(
+      initialLocation: '/',
+      refreshListenable: onboardingProvider,
+      redirect: (context, state) {
+        final currentPath = state.uri.path;
+        final langSelected = onboardingProvider.languageSelected;
+        final onboardingSeen = onboardingProvider.onboardingSeen;
+        final signedIn = onboardingProvider.isSignedIn;
+        final profileComplete = onboardingProvider.profileComplete;
+        
+        // Debug print for troubleshooting
+        if (kDebugMode) {
+          print('[GoRouter Redirect] Path: $currentPath, langSelected: $langSelected, onboardingSeen: $onboardingSeen, signedIn: $signedIn, profileComplete: $profileComplete');
+        }
+        
+        // First-launch flow gating
+        if (!langSelected) {
+          if (currentPath != '/language-select') {
+            return '/language-select';
           }
-          return const ResourceDetailScreen(listing: {});
-        },
-        '/add-listing': (context) => const AddListingScreen(),
-        '/listing-success': (context) => const ListingSuccessScreen(),
+          return null;
+        }
+        
+        if (!onboardingSeen) {
+          if (currentPath != '/onboarding') {
+            return '/onboarding';
+          }
+          return null;
+        }
+        
+        if (!signedIn) {
+          if (currentPath != '/phone' && currentPath != '/otp') {
+            return '/phone';
+          }
+          return null;
+        }
+        
+        if (!profileComplete) {
+          if (currentPath != '/profile-setup') {
+            return '/profile-setup';
+          }
+          return null;
+        }
+        
+        // Authenticated user protection
+        if (signedIn && profileComplete) {
+          if (currentPath == '/phone' || currentPath == '/otp' || currentPath == '/profile-setup') {
+            return '/home';
+          }
+        }
+        
+        return null;
       },
+      routes: [
+        // First-launch flow routes (outside shell)
+        GoRoute(
+          path: '/language-select',
+          builder: (context, state) => const LanguageSelectScreen(),
+        ),
+        GoRoute(
+          path: '/onboarding',
+          builder: (context, state) => const OnboardingScreen(),
+        ),
+        GoRoute(
+          path: '/phone',
+          builder: (context, state) => const PhoneScreen(),
+        ),
+        GoRoute(
+          path: '/otp',
+          builder: (context, state) => const OtpScreen(),
+        ),
+        GoRoute(
+          path: '/profile-setup',
+          builder: (context, state) => const ProfileSetupScreen(),
+        ),
+        
+        // Bottom navigation shell (authenticated routes)
+        StatefulShellRoute.indexedStack(
+          builder: (context, state, navigationShell) {
+            return ScaffoldWithNavBar(navigationShell: navigationShell);
+          },
+          branches: [
+            StatefulShellBranch(
+              routes: [
+                GoRoute(
+                  path: '/home',
+                  builder: (context, state) => const HomeScreen(),
+                ),
+              ],
+            ),
+            StatefulShellBranch(
+              routes: [
+                GoRoute(
+                  path: '/browse',
+                  builder: (context, state) => const BrowseScreen(),
+                  routes: [
+                    GoRoute(
+                      path: 'resource-detail/:id',
+                      builder: (context, state) {
+                        final listingId = state.pathParameters['id'] ?? '';
+                        return ResourceDetailScreen(listingId: listingId);
+                      },
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            StatefulShellBranch(
+              routes: [
+                GoRoute(
+                  path: '/add-listing',
+                  builder: (context, state) => const AddListingScreen(),
+                  routes: [
+                    GoRoute(
+                      path: 'success',
+                      builder: (context, state) => const ListingSuccessScreen(),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            StatefulShellBranch(
+              routes: [
+                GoRoute(
+                  path: '/profile',
+                  builder: (context, state) => const ProfileScreen(),
+                  routes: [
+                    GoRoute(
+                      path: 'impact-stats',
+                      builder: (context, state) => const ImpactStatsScreen(),
+                    ),
+                    GoRoute(
+                      path: 'my-trades',
+                      builder: (context, state) => const MyTradesScreen(),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ],
+        ),
+      ],
+    );
+
+    return MaterialApp.router(
+      title: 'Village Exchange',
+      theme: AppTheme.lightTheme,
+      routerConfig: router,
     );
   }
 }
 
-class AuthWrapper extends ConsumerStatefulWidget {
-  const AuthWrapper({super.key});
+class ScaffoldWithNavBar extends ConsumerWidget {
+  final StatefulNavigationShell navigationShell;
 
-  @override
-  ConsumerState<AuthWrapper> createState() => _AuthWrapperState();
-}
-
-class _AuthWrapperState extends ConsumerState<AuthWrapper> {
-  @override
-  void initState() {
-    super.initState();
-    _checkOnboardingAndAuth();
-  }
-
-  Future<void> _checkOnboardingAndAuth() async {
-    final prefs = await SharedPreferences.getInstance();
-    final onboardingCompleted = prefs.getBool('onboarding_completed') ?? false;
-
-    if (!onboardingCompleted) {
-      if (mounted) {
-        Navigator.pushReplacementNamed(context, '/onboarding');
-      }
-      return;
-    }
-
-    final session = SupabaseService.client.auth.currentSession;
-
-    if (session != null) {
-      final userId = session.user.id;
-      final hasProfile = await _checkUserProfile(userId);
-      if (mounted) {
-        if (hasProfile) {
-          Navigator.pushReplacementNamed(context, '/home');
-        } else {
-          Navigator.pushReplacementNamed(context, '/profile-setup');
-        }
-      }
-    } else {
-      if (mounted) {
-        Navigator.pushReplacementNamed(context, '/phone');
-      }
-    }
-  }
-
-  Future<bool> _checkUserProfile(String userId) async {
-    try {
-      final response = await SupabaseService.client
-          .from('users')
-          .select()
-          .eq('id', userId)
-          .single();
-      return response != null;
-    } catch (e) {
-      return false;
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return const Scaffold(body: Center(child: CircularProgressIndicator()));
-  }
-}
-
-class HomeScreen extends ConsumerWidget {
-  const HomeScreen({super.key});
+  const ScaffoldWithNavBar({super.key, required this.navigationShell});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Village Exchange'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.person),
-            onPressed: () {
-              Navigator.pushNamed(context, '/profile');
-            },
+      body: navigationShell,
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: navigationShell.currentIndex,
+        onTap: (index) => navigationShell.goBranch(index),
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.home),
+            label: 'Home',
           ),
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () {
-              ref.read(authProvider.notifier).signOut();
-              Navigator.pushReplacementNamed(context, '/phone');
-            },
+          BottomNavigationBarItem(
+            icon: Icon(Icons.search),
+            label: 'Browse',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.add_circle),
+            label: 'Add Listing',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person),
+            label: 'Profile',
           ),
         ],
-      ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.home, size: 64, color: Colors.green),
-            const SizedBox(height: 16),
-            const Text(
-              'Welcome to Village Exchange!',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            const Text('You are now logged in'),
-            const SizedBox(height: 32),
-            ElevatedButton.icon(
-              onPressed: () {
-                Navigator.pushNamed(context, '/add-listing');
-              },
-              icon: const Icon(Icons.add),
-              label: const Text('Add Listing'),
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-              ),
-            ),
-            const SizedBox(height: 16),
-            OutlinedButton.icon(
-              onPressed: () {
-                Navigator.pushNamed(context, '/impact-stats');
-              },
-              icon: const Icon(Icons.bar_chart),
-              label: const Text('View Impact Stats'),
-              style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }

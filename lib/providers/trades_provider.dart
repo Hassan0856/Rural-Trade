@@ -114,7 +114,7 @@ class TradesNotifier extends StateNotifier<TradesState> {
           .order('created_at', ascending: false);
 
       final allTrades = [...sentRequests, ...receivedRequests]
-          .map((json) => TradeRequest.fromJson(json as Map<String, dynamic>, userId))
+          .map((json) => TradeRequest.fromJson(json, userId))
           .toList();
 
       // Sort by updated_at descending
@@ -162,11 +162,25 @@ class TradesNotifier extends StateNotifier<TradesState> {
     required String description,
   }) async {
     try {
-      final reporterId = SupabaseService.client.auth.currentUser!.id;
+      final complainantId = SupabaseService.client.auth.currentUser!.id;
+
+      // Fetch request to get both parties
+      final request = await SupabaseService.client
+          .from('requests')
+          .select('requester_id, listings(owner_id)')
+          .eq('id', requestId)
+          .single();
+
+      final requesterId = request['requester_id'] as String;
+      final ownerId = request['listings']['owner_id'] as String;
+
+      // Determine respondent (the other party)
+      final respondentId = complainantId == requesterId ? ownerId : requesterId;
 
       await SupabaseService.client.from('complaints').insert({
         'request_id': requestId,
-        'reporter_id': reporterId,
+        'complainant_id': complainantId,
+        'respondent_id': respondentId,
         'category': category,
         'description': description,
       });

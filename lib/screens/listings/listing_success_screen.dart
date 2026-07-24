@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../providers/listing_provider.dart';
 
 class ListingSuccessScreen extends ConsumerWidget {
@@ -51,7 +52,7 @@ class ListingSuccessScreen extends ConsumerWidget {
                 child: ElevatedButton.icon(
                   onPressed: () {
                     ref.read(listingProvider.notifier).reset();
-                    Navigator.pushReplacementNamed(context, '/add-listing');
+                    context.go('/add-listing');
                   },
                   icon: const Icon(Icons.add),
                   label: const Text('Add Another Listing'),
@@ -66,7 +67,7 @@ class ListingSuccessScreen extends ConsumerWidget {
                 child: OutlinedButton.icon(
                   onPressed: () {
                     ref.read(listingProvider.notifier).reset();
-                    Navigator.popUntil(context, (route) => route.isFirst);
+                    context.go('/home');
                   },
                   icon: const Icon(Icons.home),
                   label: const Text('Go to Home'),

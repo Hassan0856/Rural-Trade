@@ -68,6 +68,7 @@ class _MyTradesScreenState extends ConsumerState<MyTradesScreen> {
             ),
             ElevatedButton(
               onPressed: () async {
+                final dialogContext = context;
                 final revieweeId = trade.isSent ? trade.ownerId : trade.requesterId;
                 await ref.read(tradesProvider.notifier).submitReview(
                       requestId: trade.id,
@@ -75,7 +76,9 @@ class _MyTradesScreenState extends ConsumerState<MyTradesScreen> {
                       rating: rating,
                       comment: commentController.text.isEmpty ? null : commentController.text,
                     );
-                if (mounted) Navigator.pop(context);
+                if (dialogContext.mounted) {
+                  Navigator.pop(dialogContext);
+                }
               },
               child: const Text('Submit Review'),
             ),
@@ -104,7 +107,7 @@ class _MyTradesScreenState extends ConsumerState<MyTradesScreen> {
                 const Text('Category', style: TextStyle(fontWeight: FontWeight.bold)),
                 const SizedBox(height: 8),
                 DropdownButtonFormField<String>(
-                  value: selectedCategory,
+                  initialValue: selectedCategory,
                   decoration: const InputDecoration(
                     border: OutlineInputBorder(),
                     hintText: 'Select category',
@@ -144,12 +147,15 @@ class _MyTradesScreenState extends ConsumerState<MyTradesScreen> {
           ElevatedButton(
             onPressed: () async {
               if (formKey.currentState!.validate() && selectedCategory != null) {
+                final dialogContext = context;
                 await ref.read(tradesProvider.notifier).submitComplaint(
                       requestId: trade.id,
                       category: selectedCategory!,
                       description: descriptionController.text,
                     );
-                if (mounted) Navigator.pop(context);
+                if (dialogContext.mounted) {
+                  Navigator.pop(dialogContext);
+                }
               }
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),

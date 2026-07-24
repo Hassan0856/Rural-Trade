@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "allowJs": true,
+    "lib": ["deno.window"],
+    "strict": false,
+    "types": []
+  },
+  "lint": {
+    "files": {
+      "include": ["supabase/functions/**/*.ts"]
+    }
+  },
+  "fmt": {
+    "files": {
+      "include": ["supabase/functions/**/*.ts"]
+    }
+  },
+  "tasks": {
+    "dev": "supabase functions serve"
+  },
+  "imports": {
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2"
+  }
+}

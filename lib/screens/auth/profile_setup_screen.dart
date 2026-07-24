@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
-import '../../providers/auth_provider.dart';
+import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../services/auth_service.dart';
+import '../../providers/onboarding_provider.dart';
 
 class ProfileSetupScreen extends ConsumerStatefulWidget {
   const ProfileSetupScreen({super.key});
@@ -15,9 +18,11 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
   final _nameController = TextEditingController();
   final _villageController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
+  final AuthService _authService = AuthService();
   double? _latitude;
   double? _longitude;
   bool _locationLoading = false;
+  bool _submitting = false;
 
   @override
   void dispose() {
@@ -31,9 +36,11 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
     if (status.isGranted) {
       _getCurrentLocation();
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Location permission denied')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Location permission denied')),
+        );
+      }
     }
   }
 
@@ -51,39 +58,53 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
       });
     } catch (e) {
       setState(() => _locationLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to get location: $e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to get location: $e')),
+        );
+      }
     }
   }
 
-  void _submitProfile() {
+  void _submitProfile() async {
     if (_formKey.currentState!.validate()) {
-      ref.read(authProvider.notifier).createProfile(
-        name: _nameController.text,
-        village: _villageController.text,
-        latitude: _latitude,
-        longitude: _longitude,
-      );
+      setState(() => _submitting = true);
+      
+      try {
+        await _authService.completeProfile(
+          name: _nameController.text,
+          village: _villageController.text,
+          lat: _latitude,
+          lng: _longitude,
+        );
+        
+        onboardingProvider.setProfileComplete(true);
+        
+        if (mounted) {
+          context.go('/home');
+        }
+      } on AuthException catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(e.message)),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to complete profile: $e')),
+          );
+        }
+      } finally {
+        if (mounted) {
+          setState(() => _submitting = false);
+        }
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final authState = ref.watch(authProvider);
-
-    ref.listen<AuthState>(authProvider, (previous, next) {
-      if (next.status == AuthStatus.authenticated) {
-        Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
-      }
-      if (next.errorMessage != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(next.errorMessage!)),
-        );
-        ref.read(authProvider.notifier).clearError();
-      }
-    });
-
     return Scaffold(
       appBar: AppBar(title: const Text('Complete Your Profile')),
       body: SingleChildScrollView(
@@ -181,11 +202,11 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
               ),
               const SizedBox(height: 24),
               ElevatedButton(
-                onPressed: authState.status == AuthStatus.loading ? null : _submitProfile,
+                onPressed: _submitting ? null : _submitProfile,
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
                 ),
-                child: authState.status == AuthStatus.loading
+                child: _submitting
                     ? const CircularProgressIndicator()
                     : const Text('Complete Profile', style: TextStyle(fontSize: 16)),
               ),

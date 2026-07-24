@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import '../../services/supabase_service.dart';
+import '../../models/listing_enums.dart';
 
 class ResourceDetailScreen extends StatefulWidget {
-  final Map<String, dynamic> listing;
+  final String listingId;
 
-  const ResourceDetailScreen({super.key, required this.listing});
+  const ResourceDetailScreen({super.key, required this.listingId});
 
   @override
   State<ResourceDetailScreen> createState() => _ResourceDetailScreenState();
@@ -15,6 +16,8 @@ class _ResourceDetailScreenState extends State<ResourceDetailScreen> {
   bool _hasRequested = false;
   Map<String, dynamic>? _ownerData;
   Map<String, dynamic>? _ownerRating;
+  Map<String, dynamic>? _listing;
+  bool _isLoading = true;
 
   // Earthy color palette
   static const Color _earthBrown = Color(0xFF8B5A2B);
@@ -26,13 +29,43 @@ class _ResourceDetailScreenState extends State<ResourceDetailScreen> {
   @override
   void initState() {
     super.initState();
-    _checkIfAlreadyRequested();
-    _fetchOwnerData();
+    _fetchListing();
+  }
+
+  Future<void> _fetchListing() async {
+    try {
+      final response = await SupabaseService.client
+          .from('listings')
+          .select('*')
+          .eq('id', widget.listingId)
+          .maybeSingle();
+
+      if (response != null && mounted) {
+        setState(() {
+          _listing = response;
+          _isLoading = false;
+        });
+        _checkIfAlreadyRequested();
+        _fetchOwnerData();
+      } else if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
   }
 
   Future<void> _fetchOwnerData() async {
+    if (_listing == null) return;
+    
     try {
-      final ownerId = widget.listing['owner_id'];
+      final ownerId = _listing!['owner_id'];
       if (ownerId == null) return;
 
       // Fetch owner data from users table
@@ -56,9 +89,9 @@ class _ResourceDetailScreenState extends State<ResourceDetailScreen> {
 
       if (reviewsResponse.isNotEmpty && mounted) {
         final reviews = List<Map<String, dynamic>>.from(reviewsResponse);
-        final totalRating = reviews.fold<int>(
+        final totalRating = reviews.fold<double>(
           0, 
-          (sum, review) => sum + (review['rating'] as int? ?? 0)
+          (sum, review) => sum + ((review['rating'] as num?)?.toDouble() ?? 0.0)
         );
         final averageRating = totalRating / reviews.length;
 
@@ -78,7 +111,7 @@ class _ResourceDetailScreenState extends State<ResourceDetailScreen> {
     if (_ownerData == null) return 'New trader';
     
     final badgeLevel = _ownerData!['badge_level'] as String? ?? 'new';
-    final trustScore = _ownerData!['trust_score'] as int? ?? 0;
+    final trustScore = (_ownerData!['trust_score'] as num?)?.toDouble() ?? 0.0;
     
     if (badgeLevel == 'flagged' || trustScore < 0) {
       return 'Flagged';
@@ -101,6 +134,8 @@ class _ResourceDetailScreenState extends State<ResourceDetailScreen> {
   }
 
   Future<void> _checkIfAlreadyRequested() async {
+    if (_listing == null) return;
+    
     try {
       final currentUserId = SupabaseService.client.auth.currentUser?.id;
       if (currentUserId == null) return;
@@ -109,7 +144,7 @@ class _ResourceDetailScreenState extends State<ResourceDetailScreen> {
           .from('requests')
           .select()
           .eq('requester_id', currentUserId)
-          .eq('listing_id', widget.listing['id'])
+          .eq('listing_id', _listing!['id'])
           .maybeSingle();
 
       if (mounted && response != null) {
@@ -123,13 +158,15 @@ class _ResourceDetailScreenState extends State<ResourceDetailScreen> {
   }
 
   Future<void> _requestResource() async {
+    if (_listing == null) return;
+    
     final currentUserId = SupabaseService.client.auth.currentUser?.id;
     if (currentUserId == null) {
       _showErrorToast('You must be logged in to request a resource');
       return;
     }
 
-    if (currentUserId == widget.listing['owner_id']) {
+    if (currentUserId == _listing!['owner_id']) {
       _showErrorToast('You cannot request your own listing');
       return;
     }
@@ -141,8 +178,8 @@ class _ResourceDetailScreenState extends State<ResourceDetailScreen> {
     try {
       await SupabaseService.client.from('requests').insert({
         'requester_id': currentUserId,
-        'owner_id': widget.listing['owner_id'],
-        'listing_id': widget.listing['id'],
+        'owner_id': _listing!['owner_id'],
+        'listing_id': _listing!['id'],
         'status': 'pending',
         'created_at': DateTime.now().toIso8601String(),
       });
@@ -198,12 +235,14 @@ class _ResourceDetailScreenState extends State<ResourceDetailScreen> {
 
   IconData _getTypeIcon(String type) {
     switch (type) {
-      case 'Equipment':
+      case 'rent':
         return Icons.agriculture;
-      case 'Tool':
+      case 'lend':
         return Icons.handyman;
-      case 'Produce':
-        return Icons.eco;
+      case 'sell':
+        return Icons.sell;
+      case 'exchange':
+        return Icons.swap_horiz;
       default:
         return Icons.inventory_2;
     }
@@ -211,9 +250,37 @@ class _ResourceDetailScreenState extends State<ResourceDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final listing = widget.listing;
+    if (_isLoading) {
+      return Scaffold(
+        backgroundColor: _earthBeige,
+        appBar: AppBar(
+          backgroundColor: _earthGreen,
+          foregroundColor: Colors.white,
+          title: const Text('Resource Details'),
+          elevation: 2,
+        ),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (_listing == null) {
+      return Scaffold(
+        backgroundColor: _earthBeige,
+        appBar: AppBar(
+          backgroundColor: _earthGreen,
+          foregroundColor: Colors.white,
+          title: const Text('Resource Details'),
+          elevation: 2,
+        ),
+        body: const Center(child: Text('Listing not found')),
+      );
+    }
+
+    final listing = _listing!;
     final photoUrl = listing['photo_url'];
-    final type = listing['type'] ?? 'Equipment';
+    final typeKey = listing['type'] as String? ?? 'rent';
+    final typeLabel = "${typeKey[0].toUpperCase()}${typeKey.substring(1)}";
+    final typeDisplay = ListingEnums.exchangeTypes[typeKey] ?? typeLabel;
     final distance = listing['distance'] ?? 'Unknown';
     final isAvailable = listing['status'] == 'active';
 
@@ -239,7 +306,7 @@ class _ResourceDetailScreenState extends State<ResourceDetailScreen> {
                   photoUrl,
                   fit: BoxFit.cover,
                   errorBuilder: (context, error, stackTrace) {
-                    return _buildPlaceholder(type);
+                    return _buildPlaceholder(typeKey);
                   },
                   loadingBuilder: (context, child, loadingProgress) {
                     if (loadingProgress == null) return child;
@@ -260,7 +327,7 @@ class _ResourceDetailScreenState extends State<ResourceDetailScreen> {
                 width: double.infinity,
                 height: 250,
                 color: _earthTan.withValues(alpha: 0.3),
-                child: _buildPlaceholder(type),
+                child: _buildPlaceholder(typeKey),
               ),
 
             // Content
@@ -284,13 +351,13 @@ class _ResourceDetailScreenState extends State<ResourceDetailScreen> {
                   Row(
                     children: [
                       Icon(
-                        _getTypeIcon(type),
+                        _getTypeIcon(typeKey),
                         size: 18,
                         color: _earthBrown,
                       ),
                       const SizedBox(width: 6),
                       Text(
-                        type,
+                        typeDisplay,
                         style: TextStyle(
                           fontSize: 14,
                           color: _earthBrown,
@@ -564,18 +631,24 @@ class _ResourceDetailScreenState extends State<ResourceDetailScreen> {
   Widget _buildPlaceholder(String type) {
     IconData icon;
     switch (type) {
-      case 'Equipment':
+      case 'rent':
         icon = Icons.agriculture;
         break;
-      case 'Tool':
+      case 'lend':
         icon = Icons.handyman;
         break;
-      case 'Produce':
-        icon = Icons.eco;
+      case 'sell':
+        icon = Icons.sell;
+        break;
+      case 'exchange':
+        icon = Icons.swap_horiz;
         break;
       default:
         icon = Icons.inventory_2;
     }
+
+    final typeLabel = "${type[0].toUpperCase()}${type.substring(1)}";
+    final typeDisplay = ListingEnums.exchangeTypes[type] ?? typeLabel;
 
     return Center(
       child: Column(
@@ -584,14 +657,14 @@ class _ResourceDetailScreenState extends State<ResourceDetailScreen> {
           Icon(
             icon,
             size: 64,
-            color: _earthBrown.withValues(alpha:5),
+            color: _earthBrown.withValues(alpha: 0.5),
           ),
           const SizedBox(height: 12),
           Text(
-            type,
+            typeDisplay,
             style: TextStyle(
               fontSize: 16,
-              color: _earthBrown.withValues(alpha:7),
+              color: _earthBrown.withValues(alpha: 0.7),
             ),
           ),
         ],

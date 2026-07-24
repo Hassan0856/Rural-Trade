@@ -3,9 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'dart:io';
+import 'package:go_router/go_router.dart';
 import '../../providers/listing_provider.dart';
 import '../../widgets/voice_input_widget.dart';
+import '../../services/language_service.dart';
+import '../../models/listing_enums.dart';
 
 class AddListingScreen extends ConsumerStatefulWidget {
   const AddListingScreen({super.key});
@@ -19,18 +21,49 @@ class _AddListingScreenState extends ConsumerState<AddListingScreen> {
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
   final ImagePicker _imagePicker = ImagePicker();
+  final LanguageService _languageService = LanguageService();
 
-  String _selectedCategory = 'Equipment';
-  String _selectedType = 'Rent';
+  String _selectedCategory = 'tractor';
+  String _selectedType = 'rent';
+  String? _savedLanguageCode;
 
-  final List<String> _categories = ['Equipment', 'Tool', 'Produce', 'Other'];
-  final List<String> _types = ['Rent', 'Lend', 'Sell', 'Exchange'];
+  final List<String> _categories = ListingEnums.categories.keys.toList();
+  final List<String> _types = ListingEnums.exchangeTypes.keys.toList();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSavedLanguage();
+  }
+
+  Future<void> _loadSavedLanguage() async {
+    final languageCode = await _languageService.getLanguage();
+    if (mounted) {
+      setState(() {
+        _savedLanguageCode = languageCode;
+      });
+    }
+  }
 
   @override
   void dispose() {
     _titleController.dispose();
     _descriptionController.dispose();
     super.dispose();
+  }
+
+  String? _getLanguageLocale(String? languageCode) {
+    if (languageCode == null) return null;
+    switch (languageCode) {
+      case 'en':
+        return 'en-US';
+      case 'hi':
+        return 'hi-IN';
+      case 'te':
+        return 'te-IN';
+      default:
+        return null;
+    }
   }
 
   Future<void> _pickImage() async {
@@ -43,21 +76,26 @@ class _AddListingScreenState extends ConsumerState<AddListingScreen> {
       );
 
       if (image != null) {
-        ref.read(listingProvider.notifier).selectPhoto(File(image.path));
+        final bytes = await image.readAsBytes();
+        ref.read(listingProvider.notifier).selectPhoto(bytes, image.name);
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to pick image: $e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to pick image: $e')),
+        );
+      }
     }
   }
 
   Future<void> _getCurrentLocation() async {
     final status = await Permission.location.request();
     if (!status.isGranted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Location permission denied')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Location permission denied')),
+        );
+      }
       return;
     }
 
@@ -69,13 +107,17 @@ class _AddListingScreenState extends ConsumerState<AddListingScreen> {
             position.latitude,
             position.longitude,
           );
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Location captured successfully')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Location captured successfully')),
+        );
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to get location: $e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to get location: $e')),
+        );
+      }
     }
   }
 
@@ -105,7 +147,7 @@ class _AddListingScreenState extends ConsumerState<AddListingScreen> {
 
     ref.listen<ListingState>(listingProvider, (previous, next) {
       if (next.status == ListingStatus.success) {
-        Navigator.pushReplacementNamed(context, '/listing-success');
+        context.go('/add-listing/success');
       }
       if (next.errorMessage != null) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -161,6 +203,7 @@ class _AddListingScreenState extends ConsumerState<AddListingScreen> {
                 onTextReceived: (text) {
                   _descriptionController.text = text;
                 },
+                initialLanguage: _getLanguageLocale(_savedLanguageCode),
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
@@ -173,7 +216,7 @@ class _AddListingScreenState extends ConsumerState<AddListingScreen> {
                 items: _categories.map((category) {
                   return DropdownMenuItem(
                     value: category,
-                    child: Text(category),
+                    child: Text(ListingEnums.categories[category] ?? category),
                   );
                 }).toList(),
                 onChanged: (value) {
@@ -191,7 +234,7 @@ class _AddListingScreenState extends ConsumerState<AddListingScreen> {
                 items: _types.map((type) {
                   return DropdownMenuItem(
                     value: type,
-                    child: Text(type),
+                    child: Text(ListingEnums.exchangeTypes[type] ?? type),
                   );
                 }).toList(),
                 onChanged: (value) {
@@ -213,11 +256,11 @@ class _AddListingScreenState extends ConsumerState<AddListingScreen> {
                         ),
                       ),
                       const SizedBox(height: 12),
-                      if (listingState.selectedPhoto != null)
+                      if (listingState.selectedPhotoBytes != null)
                         ClipRRect(
                           borderRadius: BorderRadius.circular(8),
-                          child: Image.file(
-                            listingState.selectedPhoto!,
+                          child: Image.memory(
+                            listingState.selectedPhotoBytes!,
                             height: 200,
                             width: double.infinity,
                             fit: BoxFit.cover,

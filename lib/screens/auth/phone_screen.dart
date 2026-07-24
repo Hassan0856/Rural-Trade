@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../providers/auth_provider.dart';
 
 class PhoneScreen extends ConsumerStatefulWidget {
@@ -31,7 +32,9 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
 
     ref.listen<AuthState>(authProvider, (previous, next) {
       if (next.status == AuthStatus.otpSent) {
-        Navigator.pushNamed(context, '/otp');
+        if (mounted) {
+          context.go('/otp');
+        }
       }
       if (next.errorMessage != null) {
         ScaffoldMessenger.of(context).showSnackBar(

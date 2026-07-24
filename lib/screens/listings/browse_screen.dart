@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:go_router/go_router.dart';
 import 'dart:math';
 import '../../services/supabase_service.dart';
-import 'resource_detail_screen.dart';
+import '../../models/listing_enums.dart';
 
 class BrowseScreen extends StatefulWidget {
   const BrowseScreen({super.key});
@@ -15,15 +16,7 @@ class BrowseScreen extends StatefulWidget {
 class _BrowseScreenState extends State<BrowseScreen> {
   final TextEditingController _searchController = TextEditingController();
   String _selectedCategory = 'All';
-  final List<String> _categories = [
-    'All',
-    'Tractor',
-    'Water Pump',
-    'Generator',
-    'Tools',
-    'Produce',
-    'Other'
-  ];
+  final List<String> _categories = ['All', ...ListingEnums.categories.keys];
 
   // Earthy color palette
   static const Color _earthBrown = Color(0xFF8B5A2B);
@@ -99,7 +92,7 @@ class _BrowseScreenState extends State<BrowseScreen> {
     if (ownerData == null) return 'New trader';
     
     final badgeLevel = ownerData['badge_level'] as String? ?? 'new';
-    final trustScore = ownerData['trust_score'] as int? ?? 0;
+    final trustScore = (ownerData['trust_score'] as num?)?.toDouble() ?? 0.0;
     
     if (badgeLevel == 'flagged' || trustScore < 0) {
       return 'Flagged';
@@ -128,11 +121,11 @@ class _BrowseScreenState extends State<BrowseScreen> {
           .select('rating')
           .eq('reviewee_id', ownerId);
       
-      if (response != null && response is List && response.isNotEmpty) {
+      if (response.isNotEmpty) {
         final reviews = List<Map<String, dynamic>>.from(response);
-        final totalRating = reviews.fold<int>(
+        final totalRating = reviews.fold<double>(
           0, 
-          (sum, review) => sum + (review['rating'] as int? ?? 0)
+          (sum, review) => sum + ((review['rating'] as num?)?.toDouble() ?? 0.0)
         );
         final averageRating = totalRating / reviews.length;
         
@@ -142,7 +135,7 @@ class _BrowseScreenState extends State<BrowseScreen> {
         };
       }
     } catch (e) {
-      print('Error fetching reviews: $e');
+      // Error fetching reviews - silently return default values
     }
     
     return {
@@ -173,25 +166,24 @@ class _BrowseScreenState extends State<BrowseScreen> {
           );
         } catch (e) {
           // Continue without location if it fails
-          print('Failed to get location: $e');
         }
       }
 
-      // Fetch listings from Supabase with owner data
+      // Fetch all active listings from Supabase (no user filter)
       final response = await SupabaseService.client
           .from('listings')
-          .select('*, users!inner(owner_id, name, badge_level, trust_score)')
-          .eq('status', 'active');
+          .select()
+          .eq('status', 'active')
+          .order('created_at', ascending: false);
 
-      if (response != null) {
-        final listings = List<Map<String, dynamic>>.from(response as List);
+      final listings = List<Map<String, dynamic>>.from(response);
 
-        // Process each listing
-        for (var listing in listings) {
-          // Calculate distances
-          if (_userPosition != null &&
-              listing['location_lat'] != null &&
-              listing['location_lng'] != null) {
+      // Process each listing
+      for (var listing in listings) {
+        // Calculate distances
+        if (_userPosition != null &&
+            listing['location_lat'] != null &&
+            listing['location_lng'] != null) {
             final distance = _calculateDistance(
               _userPosition!.latitude,
               _userPosition!.longitude,
@@ -205,23 +197,38 @@ class _BrowseScreenState extends State<BrowseScreen> {
             listing['distance'] = 'Unknown';
           }
 
-          // Extract owner data from the joined users table
-          final ownerData = listing['users'] as Map<String, dynamic>?;
-          listing['ownerData'] = ownerData;
-          listing['owner_name'] = ownerData?['name'] ?? 'Unknown Owner';
-          
-          // Get verification badge
-          final badge = _getVerificationBadge(ownerData);
-          listing['verificationBadge'] = badge;
-          listing['badgeColor'] = _getVerificationBadgeColor(badge);
-
-          // Fetch owner rating
+          // Fetch owner data separately for each listing
           final ownerId = listing['owner_id'] as String?;
           if (ownerId != null) {
-            final ratingData = await _getOwnerRating(ownerId);
-            listing['ownerRating'] = ratingData['averageRating'] as double;
-            listing['ownerReviewCount'] = ratingData['reviewCount'] as int;
+            try {
+              final ownerResponse = await SupabaseService.client
+                  .from('users')
+                  .select('*')
+                  .eq('id', ownerId)
+                  .maybeSingle();
+              
+              final ownerData = ownerResponse;
+              listing['ownerData'] = ownerData;
+              listing['owner_name'] = ownerData?['name'] ?? 'Unknown Owner';
+              
+              // Get verification badge
+              final badge = _getVerificationBadge(ownerData);
+              listing['verificationBadge'] = badge;
+              listing['badgeColor'] = _getVerificationBadgeColor(badge);
+
+              // Fetch owner rating
+              final ratingData = await _getOwnerRating(ownerId);
+              listing['ownerRating'] = ratingData['averageRating'] as double;
+              listing['ownerReviewCount'] = (ratingData['reviewCount'] as num?)?.round() ?? 0;
+            } catch (e) {
+              listing['ownerData'] = null;
+              listing['owner_name'] = 'Unknown Owner';
+              listing['ownerRating'] = 0.0;
+              listing['ownerReviewCount'] = 0;
+            }
           } else {
+            listing['ownerData'] = null;
+            listing['owner_name'] = 'Unknown Owner';
             listing['ownerRating'] = 0.0;
             listing['ownerReviewCount'] = 0;
           }
@@ -231,7 +238,6 @@ class _BrowseScreenState extends State<BrowseScreen> {
           _listings = listings;
           _isLoading = false;
         });
-      }
     } catch (e) {
       setState(() {
         _errorMessage = e.toString();
@@ -307,10 +313,13 @@ class _BrowseScreenState extends State<BrowseScreen> {
               child: Row(
                 children: _categories.map((category) {
                   final isSelected = _selectedCategory == category;
+                  final displayLabel = category == 'All' 
+                      ? 'All' 
+                      : ListingEnums.categories[category] ?? category;
                   return Padding(
                     padding: const EdgeInsets.only(right: 8),
                     child: FilterChip(
-                      label: Text(category),
+                      label: Text(displayLabel),
                       selected: isSelected,
                       onSelected: (selected) {
                         setState(() {
@@ -380,7 +389,7 @@ class _BrowseScreenState extends State<BrowseScreen> {
             Icon(
               Icons.error_outline,
               size: 64,
-              color: Colors.red.withOpacity(0.7),
+              color: Colors.red.withValues(alpha: 0.7),
             ),
             const SizedBox(height: 16),
             Text(
@@ -426,7 +435,7 @@ class _BrowseScreenState extends State<BrowseScreen> {
             Icon(
               Icons.search_off,
               size: 64,
-              color: _earthBrown.withOpacity(0.5),
+              color: _earthBrown.withValues(alpha: 0.5),
             ),
             const SizedBox(height: 16),
             Text(
@@ -477,7 +486,9 @@ class _BrowseScreenState extends State<BrowseScreen> {
   Widget _buildListingCard(Map<String, dynamic> listing) {
     final isAvailable = listing['status'] == 'active';
     final photoUrl = listing['photo_url'];
-    final type = listing['type'] ?? 'Equipment';
+    final typeKey = listing['type'] as String? ?? 'rent';
+    final typeLabel = "${typeKey[0].toUpperCase()}${typeKey.substring(1)}";
+    final typeDisplay = ListingEnums.exchangeTypes[typeKey] ?? typeLabel;
     
     return Card(
       elevation: 3,
@@ -486,12 +497,7 @@ class _BrowseScreenState extends State<BrowseScreen> {
       ),
       child: InkWell(
         onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => ResourceDetailScreen(listing: listing),
-            ),
-          );
+          context.push('/browse/resource-detail/${listing['id']}');
         },
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -501,7 +507,7 @@ class _BrowseScreenState extends State<BrowseScreen> {
               flex: 3,
               child: Container(
                 decoration: BoxDecoration(
-                  color: _earthTan.withOpacity(0.3),
+                  color: _earthTan.withValues(alpha: 0.3),
                   borderRadius: const BorderRadius.vertical(
                     top: Radius.circular(12),
                   ),
@@ -515,7 +521,7 @@ class _BrowseScreenState extends State<BrowseScreen> {
                           photoUrl,
                           fit: BoxFit.cover,
                           errorBuilder: (context, error, stackTrace) {
-                            return _buildPlaceholder(type);
+                            return _buildPlaceholder(typeKey);
                           },
                           loadingBuilder: (context, child, loadingProgress) {
                             if (loadingProgress == null) return child;
@@ -531,7 +537,7 @@ class _BrowseScreenState extends State<BrowseScreen> {
                           },
                         ),
                       )
-                    : _buildPlaceholder(type),
+                    : _buildPlaceholder(typeKey),
               ),
             ),
 
@@ -560,16 +566,20 @@ class _BrowseScreenState extends State<BrowseScreen> {
                     Row(
                       children: [
                         Icon(
-                          _getTypeIcon(type),
+                          _getTypeIcon(typeKey),
                           size: 14,
                           color: _earthBrown,
                         ),
                         const SizedBox(width: 4),
-                        Text(
-                          type,
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: _earthBrown,
+                        Expanded(
+                          child: Text(
+                            typeDisplay,
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: _earthBrown,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                       ],
@@ -585,11 +595,15 @@ class _BrowseScreenState extends State<BrowseScreen> {
                           color: _earthGreen,
                         ),
                         const SizedBox(width: 4),
-                        Text(
-                          listing['distance'] ?? 'Unknown',
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: _earthGreen,
+                        Expanded(
+                          child: Text(
+                            listing['distance'] ?? 'Unknown',
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: _earthGreen,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                       ],
@@ -618,7 +632,7 @@ class _BrowseScreenState extends State<BrowseScreen> {
                             ' (${listing['ownerReviewCount']})',
                             style: TextStyle(
                               fontSize: 10,
-                              color: _earthBrown.withOpacity(0.7),
+                              color: _earthBrown.withValues(alpha: 0.7),
                             ),
                           ),
                         ],
@@ -632,7 +646,7 @@ class _BrowseScreenState extends State<BrowseScreen> {
                         vertical: 2,
                       ),
                       decoration: BoxDecoration(
-                        color: (listing['badgeColor'] as Color?)?.withOpacity(0.15) ?? Colors.orange.withOpacity(0.15),
+                        color: (listing['badgeColor'] as Color?)?.withValues(alpha: 0.15) ?? Colors.orange.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(
                           color: listing['badgeColor'] as Color? ?? Colors.orange,
@@ -658,8 +672,8 @@ class _BrowseScreenState extends State<BrowseScreen> {
                       ),
                       decoration: BoxDecoration(
                         color: isAvailable
-                            ? _earthGreen.withOpacity(0.2)
-                            : Colors.orange.withOpacity(0.2),
+                            ? _earthGreen.withValues(alpha: 0.2)
+                            : Colors.orange.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
                           color: isAvailable ? _earthGreen : Colors.orange,
@@ -688,18 +702,24 @@ class _BrowseScreenState extends State<BrowseScreen> {
   Widget _buildPlaceholder(String type) {
     IconData icon;
     switch (type) {
-      case 'Equipment':
+      case 'rent':
         icon = Icons.agriculture;
         break;
-      case 'Tool':
+      case 'lend':
         icon = Icons.handyman;
         break;
-      case 'Produce':
-        icon = Icons.eco;
+      case 'sell':
+        icon = Icons.sell;
+        break;
+      case 'exchange':
+        icon = Icons.swap_horiz;
         break;
       default:
         icon = Icons.inventory_2;
     }
+
+    final typeLabel = "${type[0].toUpperCase()}${type.substring(1)}";
+    final typeDisplay = ListingEnums.exchangeTypes[type] ?? typeLabel;
 
     return Center(
       child: Column(
@@ -708,14 +728,14 @@ class _BrowseScreenState extends State<BrowseScreen> {
           Icon(
             icon,
             size: 48,
-            color: _earthBrown.withOpacity(0.5),
+            color: _earthBrown.withValues(alpha: 0.5),
           ),
           const SizedBox(height: 8),
           Text(
-            type,
+            typeDisplay,
             style: TextStyle(
               fontSize: 12,
-              color: _earthBrown.withOpacity(0.7),
+              color: _earthBrown.withValues(alpha: 0.7),
             ),
           ),
         ],
@@ -725,12 +745,14 @@ class _BrowseScreenState extends State<BrowseScreen> {
 
   IconData _getTypeIcon(String type) {
     switch (type) {
-      case 'Equipment':
+      case 'rent':
         return Icons.agriculture;
-      case 'Tool':
+      case 'lend':
         return Icons.handyman;
-      case 'Produce':
-        return Icons.eco;
+      case 'sell':
+        return Icons.sell;
+      case 'exchange':
+        return Icons.swap_horiz;
       default:
         return Icons.inventory_2;
     }

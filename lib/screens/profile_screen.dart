@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../services/supabase_service.dart';
 import '../providers/user_listings_provider.dart';
 import '../providers/auth_provider.dart';
@@ -70,6 +71,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           ElevatedButton(
             onPressed: () async {
               if (formKey.currentState!.validate()) {
+                final dialogContext = context;
                 await ref.read(userListingsProvider.notifier).updateListing(
                       listingId: listing.id,
                       title: titleController.text,
@@ -77,7 +79,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       category: categoryController.text,
                       type: typeController.text,
                     );
-                if (mounted) Navigator.pop(context);
+                if (dialogContext.mounted) {
+                  Navigator.pop(dialogContext);
+                }
               }
             },
             child: const Text('Save'),
@@ -158,7 +162,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             icon: const Icon(Icons.logout),
             onPressed: () {
               ref.read(authProvider.notifier).signOut();
-              Navigator.pushNamedAndRemoveUntil(context, '/phone', (route) => false);
+              context.go('/phone');
             },
           ),
         ],
@@ -278,14 +282,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                             children: [
                               TextButton.icon(
                                 onPressed: () {
-                                  Navigator.pushNamed(context, '/my-trades');
+                                  context.go('/profile/my-trades');
                                 },
                                 icon: const Icon(Icons.swap_horiz, size: 18),
                                 label: const Text('My Trades'),
                               ),
                               TextButton.icon(
                                 onPressed: () {
-                                  Navigator.pushNamed(context, '/add-listing');
+                                  context.go('/add-listing');
                                 },
                                 icon: const Icon(Icons.add),
                                 label: const Text('Add New'),

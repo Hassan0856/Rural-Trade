@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../services/supabase_service.dart';
+import '../services/auth_service.dart';
 
 enum AuthStatus {
   initial,
@@ -36,16 +36,29 @@ class AuthState {
 }
 
 class AuthNotifier extends StateNotifier<AuthState> {
-  AuthNotifier() : super(AuthState());
+  final AuthService _authService = AuthService();
+  
+  AuthNotifier() : super(AuthState()) {
+    _checkAuthStatus();
+  }
+
+  Future<void> _checkAuthStatus() async {
+    if (_authService.isSignedIn) {
+      state = state.copyWith(status: AuthStatus.authenticated);
+    }
+  }
 
   Future<void> sendOtp(String phoneNumber) async {
     state = state.copyWith(status: AuthStatus.loading, phoneNumber: phoneNumber);
     
     try {
-      await SupabaseService.auth.signInWithOtp(
-        phone: phoneNumber,
-      );
+      await _authService.sendOtp(phoneNumber);
       state = state.copyWith(status: AuthStatus.otpSent);
+    } on AuthException catch (e) {
+      state = state.copyWith(
+        status: AuthStatus.unauthenticated,
+        errorMessage: e.message,
+      );
     } catch (e) {
       state = state.copyWith(
         status: AuthStatus.unauthenticated,
@@ -58,22 +71,21 @@ class AuthNotifier extends StateNotifier<AuthState> {
     state = state.copyWith(status: AuthStatus.loading);
     
     try {
-      final response = await SupabaseService.auth.verifyOTP(
-        phone: state.phoneNumber!,
-        token: otp,
-        type: OtpType.sms,
+      final needsProfile = await _authService.verifyOtpAndSignIn(
+        rawPhone: state.phoneNumber!,
+        code: otp,
       );
-
-      if (response.session != null) {
-        final userId = response.user!.id;
-        final hasProfile = await _checkUserProfile(userId);
-        
-        if (hasProfile) {
-          state = state.copyWith(status: AuthStatus.authenticated);
-        } else {
-          state = state.copyWith(status: AuthStatus.needsProfile);
-        }
+      
+      if (needsProfile) {
+        state = state.copyWith(status: AuthStatus.needsProfile);
+      } else {
+        state = state.copyWith(status: AuthStatus.authenticated);
       }
+    } on AuthException catch (e) {
+      state = state.copyWith(
+        status: AuthStatus.unauthenticated,
+        errorMessage: e.message,
+      );
     } catch (e) {
       state = state.copyWith(
         status: AuthStatus.unauthenticated,
@@ -82,50 +94,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
-  Future<bool> _checkUserProfile(String userId) async {
-    try {
-      final response = await SupabaseService.client
-          .from('users')
-          .select()
-          .eq('id', userId)
-          .single();
-      return response != null;
-    } catch (e) {
-      return false;
-    }
-  }
-
-  Future<void> createProfile({
-    required String name,
-    required String village,
-    double? latitude,
-    double? longitude,
-  }) async {
-    state = state.copyWith(status: AuthStatus.loading);
-    
-    try {
-      final userId = SupabaseService.auth.currentUser!.id;
-      
-      await SupabaseService.client.from('users').insert({
-        'id': userId,
-        'name': name,
-        'phone': state.phoneNumber,
-        'village': village,
-        'location_lat': latitude,
-        'location_lng': longitude,
-      });
-
-      state = state.copyWith(status: AuthStatus.authenticated);
-    } catch (e) {
-      state = state.copyWith(
-        status: AuthStatus.needsProfile,
-        errorMessage: e.toString(),
-      );
-    }
-  }
-
   Future<void> signOut() async {
-    await SupabaseService.auth.signOut();
+    await _authService.signOut();
     state = AuthState();
   }
 
