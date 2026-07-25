@@ -7,15 +7,20 @@
 #
 # GEMINI_API_KEY is deliberately NOT here — it lives only as a Supabase
 # Edge Function secret and is never bundled into the client, by design.
+#
+# flutter: stable is confirmed working as-is (the speech_to_text version
+# bump fixed the AGP9/jcenter error on its own — no version pin needed).
+# If a future Codemagic "stable" update ever reintroduces that error,
+# pin flutter: 3.24.0 here as a fallback.
 
 workflows:
   android-apk:
-    name: Village Exchange - Android APK
+    name: Rural Trader - Android APK
     max_build_duration: 30
     environment:
       flutter: stable
       groups:
-        - village_exchange_secrets   # create this group in the Codemagic dashboard
+        - rural_trader_secrets   # create this group in the Codemagic dashboard
     scripts:
       - name: Write .env from secure variables
         script: |
@@ -30,4 +35,3 @@ workflows:
         script: flutter build apk --release
     artifacts:
       - build/app/outputs/flutter-apk/app-release.apk
-      
