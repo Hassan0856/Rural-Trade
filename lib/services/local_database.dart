@@ -26,33 +26,14 @@ class LocalDatabase {
 
     return await openDatabase(
       path,
-      version: 2,
+      version: 3,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
   }
 
   Future<void> _onCreate(Database db, int version) async {
-    // Cache table for listings
-    await db.execute('''
-      CREATE TABLE cached_listings (
-        id TEXT PRIMARY KEY,
-        title TEXT NOT NULL,
-        description TEXT,
-        category TEXT NOT NULL,
-        type TEXT NOT NULL,
-        location_lat REAL,
-        location_lng REAL,
-        location_name TEXT,
-        photo_url TEXT,
-        owner_id TEXT NOT NULL,
-        owner_name TEXT,
-        owner_phone TEXT,
-        status TEXT NOT NULL,
-        created_at TEXT NOT NULL,
-        cached_at INTEGER NOT NULL
-      )
-    ''');
+    await _createCachedListingsTable(db);
 
     // Queue table for pending listings
     await db.execute('''
@@ -80,6 +61,34 @@ class LocalDatabase {
         await db.execute('ALTER TABLE pending_listings ADD COLUMN payload TEXT NOT NULL DEFAULT "{}"');
       }
     }
+
+    if (oldVersion < 3) {
+      await db.execute('DROP TABLE IF EXISTS cached_listings');
+      await _createCachedListingsTable(db);
+    }
+  }
+
+  Future<void> _createCachedListingsTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE cached_listings (
+        id TEXT PRIMARY KEY,
+        title TEXT NOT NULL,
+        description TEXT,
+        category TEXT NOT NULL,
+        type TEXT NOT NULL,
+        location_lat REAL,
+        location_lng REAL,
+        location_name TEXT,
+        image_url TEXT,
+        photo_url TEXT,
+        owner_id TEXT NOT NULL,
+        owner_name TEXT,
+        owner_phone TEXT,
+        status TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        cached_at INTEGER NOT NULL
+      )
+    ''');
   }
 
   // Listings cache operations
