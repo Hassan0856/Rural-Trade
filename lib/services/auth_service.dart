@@ -192,8 +192,8 @@ class AuthService {
       'village': village.trim(),
       // Omit entirely when off — never write 0.0, a real Gulf-of-Guinea
       // coordinate that would wreck the distance sort.
-      if (lat != null) 'location_lat': lat,
-      if (lng != null) 'location_lng': lng,
+      ...?(lat != null ? {'location_lat': lat} : null),
+      ...?(lng != null ? {'location_lng': lng} : null),
     }).eq('id', uid);
 
     // Fast path for every future check on this device — see

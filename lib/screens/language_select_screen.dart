@@ -53,7 +53,7 @@ class LanguageSelectScreen extends StatelessWidget {
                     child: Text(entry.value),
                   ),
                 );
-              }).toList(),
+              }),
             ],
           ),
         ),

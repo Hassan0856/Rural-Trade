@@ -380,9 +380,9 @@ class _ResourceDetailScreenState extends State<ResourceDetailScreen> {
     final listing = _listing!;
     final photoUrl = listing['photo_url'];
     final typeKey = listing['type'] as String? ?? 'rent';
-    final typeLabel = "${typeKey[0].toUpperCase()}${typeKey.substring(1)}";
-    final typeDisplay = ListingEnums.exchangeTypes[typeKey] ?? typeLabel;
-    final distance = listing['distance'] ?? 'Unknown';
+    final typeDisplay = AppStrings.t('exchange_$typeKey', currentLanguage);
+    final distance = listing['distance'] as String?;
+    final hasDistance = distance != null && distance.isNotEmpty && distance.toLowerCase() != 'unknown';
     final isAvailable = listing['status'] == 'active';
     final isOwnListing = _isOwnListing();
 
@@ -483,7 +483,9 @@ class _ResourceDetailScreenState extends State<ResourceDetailScreen> {
                           ),
                         ),
                         child: Text(
-                          isAvailable ? 'Available' : 'Unavailable',
+                          isAvailable
+                              ? AppStrings.t('status_available', currentLanguage)
+                              : AppStrings.t('status_unavailable', currentLanguage),
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
@@ -495,25 +497,27 @@ class _ResourceDetailScreenState extends State<ResourceDetailScreen> {
                   ),
                   const SizedBox(height: 16),
 
-                  // Distance
-                  Row(
-                    children: [
-                      const Icon(
-                        Icons.location_on,
-                        size: 18,
-                        color: _earthGreen,
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        distance,
-                        style: const TextStyle(
-                          fontSize: 14,
+                  if (hasDistance) ...[
+                    // Distance
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.location_on,
+                          size: 18,
                           color: _earthGreen,
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
+                        const SizedBox(width: 6),
+                        Text(
+                          distance,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: _earthGreen,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                  ],
 
                   // Description
                   Text(
@@ -684,7 +688,7 @@ class _ResourceDetailScreenState extends State<ResourceDetailScreen> {
                                     ),
                                   ),
                                   Text(
-                                    ', ${_ownerRating!['reviewCount']} trades',
+                                    ', ${_ownerRating!['reviewCount']} ${AppStrings.t('detail_trades_suffix', currentLanguage)}',
                                     style: TextStyle(
                                       fontSize: 12,
                                       color: _earthBrown.withValues(alpha:7),
@@ -768,10 +772,10 @@ class _ResourceDetailScreenState extends State<ResourceDetailScreen> {
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(color: _earthTan),
                       ),
-                      child: const Text(
-                        'This is your listing',
+                      child: Text(
+                        AppStrings.t('detail_own_listing_message', currentLanguage),
                         textAlign: TextAlign.center,
-                        style: TextStyle(
+                        style: const TextStyle(
                           color: _earthBrown,
                           fontStyle: FontStyle.italic,
                         ),
@@ -782,7 +786,7 @@ class _ResourceDetailScreenState extends State<ResourceDetailScreen> {
                   // Info text
                   if (!_hasRequested && isAvailable && !isOwnListing)
                     Text(
-                      'By requesting, you\'ll be connected with the owner to arrange the exchange.',
+                      AppStrings.t('detail_request_note', currentLanguage),
                       style: TextStyle(
                         fontSize: 12,
                         color: _earthBrown.withValues(alpha:7),

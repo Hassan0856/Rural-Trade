@@ -121,9 +121,11 @@ class _VoiceInputWidgetState extends State<VoiceInputWidget> {
           _transcribedText = result.recognizedWords;
         });
       },
-      listenFor: const Duration(seconds: 30),
-      pauseFor: const Duration(seconds: 3),
-      localeId: localeId,
+      listenOptions: SpeechListenOptions(
+        listenFor: const Duration(seconds: 30),
+        pauseFor: const Duration(seconds: 3),
+        localeId: localeId,
+      ),
     );
 
     setState(() {

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:developer' as developer;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 
@@ -25,7 +26,10 @@ class WeatherService {
 
       final response =
           await http.get(url).timeout(const Duration(seconds: 10));
-      if (response.statusCode != 200) return true;
+      if (response.statusCode != 200) {
+        developer.log('[WEATHER_SERVICE] forecast request failed: status=${response.statusCode}, body=${response.body}');
+        return true;
+      }
 
       final data = jsonDecode(response.body) as Map<String, dynamic>;
       final list = data['list'] as List<dynamic>? ?? [];
@@ -46,7 +50,8 @@ class WeatherService {
       }
 
       return false;
-    } catch (_) {
+    } catch (error, stackTrace) {
+      developer.log('[WEATHER_SERVICE] forecast request exception: $error', error: error, stackTrace: stackTrace);
       return true; // fail safe — suppress banner
     }
   }

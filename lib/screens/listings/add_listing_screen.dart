@@ -35,6 +35,8 @@ class _AddListingScreenState extends ConsumerState<AddListingScreen> {
   String _selectedType = 'rent';
   String? _savedLanguageCode;
 
+  String get _currentLanguage => languageProvider.language ?? 'en';
+
   final List<String> _categories = ListingEnums.categories.keys.toList();
   final List<String> _types = ListingEnums.exchangeTypes.keys.toList();
 
@@ -122,7 +124,7 @@ class _AddListingScreenState extends ConsumerState<AddListingScreen> {
 
       if (listingState.latitude == null || listingState.longitude == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please capture your location')),
+          SnackBar(content: Text(AppStrings.t('add_listing_location_required', _currentLanguage))),
         );
         return;
       }
@@ -130,10 +132,8 @@ class _AddListingScreenState extends ConsumerState<AddListingScreen> {
       if (!isOnline) {
         if (kIsWeb) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                'Offline queueing is not supported on web. Please reconnect to submit your listing.',
-              ),
+            SnackBar(
+              content: Text(AppStrings.t('add_listing_offline_queue_unsupported', _currentLanguage)),
             ),
           );
           return;
@@ -218,7 +218,7 @@ class _AddListingScreenState extends ConsumerState<AddListingScreen> {
                 ),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return 'Please enter a title';
+                    return AppStrings.t('add_listing_title_required', currentLanguage);
                   }
                   return null;
                 },
@@ -234,7 +234,7 @@ class _AddListingScreenState extends ConsumerState<AddListingScreen> {
                 ),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return 'Please enter a description';
+                    return AppStrings.t('add_listing_description_required', currentLanguage);
                   }
                   return null;
                 },
@@ -255,9 +255,12 @@ class _AddListingScreenState extends ConsumerState<AddListingScreen> {
                   border: const OutlineInputBorder(),
                 ),
                 items: _categories.map((category) {
+                  final displayLabel = category == 'All'
+                      ? AppStrings.t('category_all', currentLanguage)
+                      : AppStrings.t('category_$category', currentLanguage);
                   return DropdownMenuItem(
                     value: category,
-                    child: Text(ListingEnums.categories[category] ?? category),
+                    child: Text(displayLabel),
                   );
                 }).toList(),
                 onChanged: (value) {
@@ -268,14 +271,14 @@ class _AddListingScreenState extends ConsumerState<AddListingScreen> {
               DropdownButtonFormField<String>(
                 initialValue: _selectedType,
                 decoration: InputDecoration(
-                  labelText: 'Exchange Type',
+                  labelText: AppStrings.t('add_listing_exchange_type_label', currentLanguage),
                   prefixIcon: const Icon(Icons.swap_horiz),
                   border: const OutlineInputBorder(),
                 ),
                 items: _types.map((type) {
                   return DropdownMenuItem(
                     value: type,
-                    child: Text(ListingEnums.exchangeTypes[type] ?? type),
+                    child: Text(AppStrings.t('exchange_$type', currentLanguage)),
                   );
                 }).toList(),
                 onChanged: (value) {
@@ -314,13 +317,13 @@ class _AddListingScreenState extends ConsumerState<AddListingScreen> {
                             border: Border.all(color: Colors.grey),
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          child: const Center(
+                          child: Center(
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(Icons.add_photo_alternate, size: 48, color: Colors.grey),
-                                SizedBox(height: 8),
-                                Text('No photo selected', style: TextStyle(color: Colors.grey)),
+                                const Icon(Icons.add_photo_alternate, size: 48, color: Colors.grey),
+                                const SizedBox(height: 8),
+                                Text(AppStrings.t('add_listing_no_photo', currentLanguage), style: const TextStyle(color: Colors.grey)),
                               ],
                             ),
                           ),

@@ -6,7 +6,7 @@ plugins {
 
 android {
     namespace = "com.example.village_exchange"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 36   // was: flutter.compileSdkVersion — Flutter 3.24.0's default (33) is too low for connectivity_plus
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -14,13 +14,10 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
+defaultConfig {
         applicationId = "com.example.village_exchange"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
-        targetSdk = flutter.targetSdkVersion
+        targetSdk = 36   // was: flutter.targetSdkVersion — same reason
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }

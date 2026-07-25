@@ -38,6 +38,8 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
   Position? _userPosition;
   String? _errorMessage;
 
+  String get _currentLanguage => languageProvider.language ?? 'en';
+
   List<Map<String, dynamic>> get _filteredListings {
     var filtered = _listings;
 
@@ -404,6 +406,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
   }
 
   Widget _buildLoadingState() {
+    final currentLanguage = _currentLanguage;
     return Container(
       color: _earthBeige,
       padding: const EdgeInsets.all(12),
@@ -413,7 +416,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
           Align(
             alignment: Alignment.centerLeft,
             child: Text(
-              'Finding nearby listings...',
+              AppStrings.t('browse_loading_message', currentLanguage),
               style: TextStyle(
                 color: _earthDarkGreen,
                 fontSize: 16,
@@ -494,6 +497,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
   }
 
   Widget _buildErrorState() {
+    final currentLanguage = _currentLanguage;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24.0),
@@ -507,7 +511,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
             ),
             const SizedBox(height: 16),
             Text(
-              'Failed to load resources',
+              AppStrings.t('browse_error_title', currentLanguage),
               style: TextStyle(
                 color: _earthDarkGreen,
                 fontSize: 18,
@@ -527,7 +531,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
             ElevatedButton.icon(
               onPressed: _fetchListings,
               icon: const Icon(Icons.refresh),
-              label: const Text('Try Again'),
+              label: Text(AppStrings.t('browse_try_again_button', currentLanguage)),
               style: ElevatedButton.styleFrom(
                 backgroundColor: _earthGreen,
                 foregroundColor: Colors.white,
@@ -540,9 +544,10 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
   }
 
   Widget _buildEmptyState() {
+    final currentLanguage = _currentLanguage;
     final message = _selectedCategory == 'All' && _searchController.text.isEmpty
-        ? 'No listings are available right now. Add one to share with your village or check back soon.'
-        : 'Try adjusting your filters or filters to find what you need.';
+        ? AppStrings.t('browse_empty_all_message', currentLanguage)
+        : AppStrings.t('browse_empty_filter_message', currentLanguage);
 
     return Center(
       child: Padding(
@@ -557,7 +562,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
             ),
             const SizedBox(height: 16),
             Text(
-              'No listings found',
+              AppStrings.t('browse_empty_title', currentLanguage),
               style: TextStyle(
                 color: _earthDarkGreen,
                 fontSize: 18,
@@ -714,15 +719,18 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
                               ),
                               const SizedBox(width: 4),
                               Expanded(
-                                child: Text(
-                                  listing['distance'] ?? 'Unknown',
-                                  style: const TextStyle(
-                                    fontSize: 11,
-                                    color: _earthGreen,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
+                                child: listing['distance'] != null &&
+                                      listing['distance'].toString().toLowerCase() != 'unknown'
+                                  ? Text(
+                                      listing['distance'],
+                                      style: const TextStyle(
+                                        fontSize: 11,
+                                        color: _earthGreen,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    )
+                                  : const SizedBox.shrink(),
                               ),
                             ],
                           ),

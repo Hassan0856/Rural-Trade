@@ -61,7 +61,7 @@ class _MyTradesScreenState extends ConsumerState<MyTradesScreen> {
     }
   }
 
-  void _showReviewDialog(TradeRequest trade) {
+  void _showReviewDialog(TradeRequest trade, String currentLanguage) {
     int rating = 5;
     final commentController = TextEditingController();
 
@@ -69,12 +69,12 @@ class _MyTradesScreenState extends ConsumerState<MyTradesScreen> {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          title: const Text('Leave a Review'),
+          title: Text(AppStrings.t('trades_review_dialog_title', currentLanguage)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                'Rate your experience with ${trade.isSent ? trade.ownerName : trade.requesterName}',
+                '${AppStrings.t('trades_review_dialog_prompt', currentLanguage)} ${trade.isSent ? trade.ownerName : trade.requesterName}',
                 style: const TextStyle(fontSize: 14),
               ),
               const SizedBox(height: 16),
@@ -96,9 +96,9 @@ class _MyTradesScreenState extends ConsumerState<MyTradesScreen> {
               const SizedBox(height: 16),
               TextField(
                 controller: commentController,
-                decoration: const InputDecoration(
-                  labelText: 'Comment (optional)',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: AppStrings.t('trades_review_comment_hint', currentLanguage),
+                  border: const OutlineInputBorder(),
                 ),
                 maxLines: 3,
               ),
@@ -107,7 +107,7 @@ class _MyTradesScreenState extends ConsumerState<MyTradesScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
+              child: Text(AppStrings.t('trades_review_cancel_button', currentLanguage)),
             ),
             ElevatedButton(
               onPressed: () async {
@@ -130,14 +130,14 @@ class _MyTradesScreenState extends ConsumerState<MyTradesScreen> {
                     );
                   } else {
                     ScaffoldMessenger.of(dialogContext).showSnackBar(
-                      const SnackBar(
-                        content: Text('Review submitted — trust scores will update on refresh'),
+                      SnackBar(
+                        content: Text(AppStrings.t('trades_review_submitted_message', currentLanguage)),
                       ),
                     );
                   }
                 }
               },
-              child: const Text('Submit Review'),
+              child: Text(AppStrings.t('trades_review_submit_button', currentLanguage)),
             ),
           ],
         ),
@@ -145,7 +145,7 @@ class _MyTradesScreenState extends ConsumerState<MyTradesScreen> {
     );
   }
 
-  void _showReportIssueDialog(TradeRequest trade) {
+  void _showReportIssueDialog(TradeRequest trade, String currentLanguage) {
     String? selectedCategory;
     final descriptionController = TextEditingController();
     final formKey = GlobalKey<FormState>();
@@ -153,7 +153,7 @@ class _MyTradesScreenState extends ConsumerState<MyTradesScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Report an Issue'),
+        title: Text(AppStrings.t('trades_report_issue_title', currentLanguage)),
         content: Form(
           key: formKey,
           child: SingleChildScrollView(
@@ -161,39 +161,39 @@ class _MyTradesScreenState extends ConsumerState<MyTradesScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Category',
-                    style: TextStyle(fontWeight: FontWeight.bold)),
+                Text(AppStrings.t('trades_report_issue_category_label', currentLanguage),
+                    style: const TextStyle(fontWeight: FontWeight.bold)),
                 const SizedBox(height: 8),
                 DropdownButtonFormField<String>(
                   initialValue: selectedCategory,
-                  decoration: const InputDecoration(
-                    border: OutlineInputBorder(),
-                    hintText: 'Select category',
+                  decoration: InputDecoration(
+                    border: const OutlineInputBorder(),
+                    hintText: AppStrings.t('trades_report_issue_category_hint', currentLanguage),
                   ),
-                  items: const [
-                    DropdownMenuItem(value: 'damaged', child: Text('Damaged')),
-                    DropdownMenuItem(value: 'stolen', child: Text('Stolen')),
-                    DropdownMenuItem(value: 'no-show', child: Text('No-show')),
-                    DropdownMenuItem(value: 'other', child: Text('Other')),
+                  items: [
+                    DropdownMenuItem(value: 'damaged', child: Text(AppStrings.t('trades_issue_damaged', currentLanguage))),
+                    DropdownMenuItem(value: 'stolen', child: Text(AppStrings.t('trades_issue_stolen', currentLanguage))),
+                    DropdownMenuItem(value: 'no-show', child: Text(AppStrings.t('trades_issue_no_show', currentLanguage))),
+                    DropdownMenuItem(value: 'other', child: Text(AppStrings.t('trades_issue_other', currentLanguage))),
                   ],
                   onChanged: (value) {
                     selectedCategory = value;
                   },
-                  validator: (value) => value == null ? 'Required' : null,
+                  validator: (value) => value == null ? AppStrings.t('common_required', currentLanguage) : null,
                 ),
                 const SizedBox(height: 16),
-                const Text('Description',
-                    style: TextStyle(fontWeight: FontWeight.bold)),
+                Text(AppStrings.t('trades_report_issue_description_label', currentLanguage),
+                    style: const TextStyle(fontWeight: FontWeight.bold)),
                 const SizedBox(height: 8),
                 TextFormField(
                   controller: descriptionController,
-                  decoration: const InputDecoration(
-                    border: OutlineInputBorder(),
-                    hintText: 'Describe the issue',
+                  decoration: InputDecoration(
+                    border: const OutlineInputBorder(),
+                    hintText: AppStrings.t('trades_report_issue_description_hint', currentLanguage),
                   ),
                   maxLines: 4,
                   validator: (value) =>
-                      value?.isEmpty ?? true ? 'Required' : null,
+                      value?.isEmpty ?? true ? AppStrings.t('common_required', currentLanguage) : null,
                 ),
               ],
             ),
@@ -202,7 +202,7 @@ class _MyTradesScreenState extends ConsumerState<MyTradesScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: Text(AppStrings.t('trades_review_cancel_button', currentLanguage)),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -223,9 +223,8 @@ class _MyTradesScreenState extends ConsumerState<MyTradesScreen> {
                     );
                   } else {
                     ScaffoldMessenger.of(dialogContext).showSnackBar(
-                      const SnackBar(
-                        content: Text(
-                            'Report submitted — trust scores will update on refresh'),
+                      SnackBar(
+                        content: Text(AppStrings.t('trades_report_issue_submitted_message', currentLanguage)),
                       ),
                     );
                   }
@@ -233,7 +232,7 @@ class _MyTradesScreenState extends ConsumerState<MyTradesScreen> {
               }
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Submit Report'),
+            child: Text(AppStrings.t('trades_report_issue_submit_button', currentLanguage)),
           ),
         ],
       ),
@@ -354,8 +353,8 @@ class _MyTradesScreenState extends ConsumerState<MyTradesScreen> {
                           onComplete: () => _handleAction(() => ref
                               .read(tradesProvider.notifier)
                               .completeRequest(trade.id)),
-                          onReview: () => _showReviewDialog(trade),
-                          onReportIssue: () => _showReportIssueDialog(trade),
+                          onReview: () => _showReviewDialog(trade, currentLanguage),
+                          onReportIssue: () => _showReportIssueDialog(trade, currentLanguage),
                           currentLanguage: currentLanguage,
                         ),
                       );
@@ -552,7 +551,7 @@ class _TradeCard extends StatelessWidget {
                 Padding(
                   padding: const EdgeInsets.only(bottom: 8),
                   child: Text(
-                    'Review submitted',
+                    AppStrings.t('trades_review_submitted_message', currentLanguage),
                     style: TextStyle(
                       fontSize: 12,
                       color: Colors.grey.shade600,
@@ -576,7 +575,7 @@ class _TradeCard extends StatelessWidget {
                 )
               else
                 Text(
-                  'Issue reported',
+                  AppStrings.t('trades_issue_reported_message', currentLanguage),
                   style: TextStyle(
                     fontSize: 12,
                     color: Colors.grey.shade600,

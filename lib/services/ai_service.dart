@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:developer' as developer;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../l10n/app_strings.dart';
 
@@ -13,34 +14,37 @@ class AiService {
           ? '$languageInstruction\n\n$prompt'
           : prompt;
 
-      // DIAGNOSIS: Print the exact prompt being sent
-      print('[AI_SERVICE] languageCode: $languageCode');
-      print('[AI_SERVICE] languageInstruction: $languageInstruction');
-      print('[AI_SERVICE] fullPrompt: $fullPrompt');
+      // DIAGNOSIS: Log the exact prompt being sent
+      developer.log('[AI_SERVICE] languageCode: $languageCode');
+      developer.log('[AI_SERVICE] languageInstruction: $languageInstruction');
+      developer.log('[AI_SERVICE] fullPrompt: $fullPrompt');
 
-      Future<String?> _invoke() async {
+      Future<String?> invokeAi() async {
         final res = await Supabase.instance.client.functions.invoke(
           'gemini-generate',
           body: {'prompt': fullPrompt},
         );
 
-        // Check if response status is 200
         if (res.status != 200) {
+          developer.log('[AI_SERVICE] gemini-generate failed: status=${res.status}, data=${res.data}');
           return null;
         }
 
         final text = (res.data is Map) ? res.data['text'] as String? : null;
-        if (text == null || text.isEmpty) return null;
+        if (text == null || text.isEmpty) {
+          developer.log('[AI_SERVICE] gemini-generate returned empty response: data=${res.data}');
+          return null;
+        }
         return text.trim();
       }
 
       // First attempt
-      var result = await _invoke();
+      var result = await invokeAi();
       if (result != null) return result;
 
       // Retry once after 1 second
       await Future.delayed(const Duration(seconds: 1));
-      result = await _invoke();
+      result = await invokeAi();
       if (result != null) return result;
 
       // Both attempts failed
