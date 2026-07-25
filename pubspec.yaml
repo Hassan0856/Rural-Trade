@@ -47,7 +47,7 @@ dependencies:
   http: ^1.2.0
   sqflite: ^2.3.0
   path: ^1.8.3
-  connectivity_plus: ^5.0.2
+  connectivity_plus: ^6.1.5
 
 dev_dependencies:
   flutter_test:

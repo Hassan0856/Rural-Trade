@@ -14,17 +14,21 @@ class ConnectivityNotifier extends ChangeNotifier {
   }
 
   Future<void> _initConnectivity() async {
-    final result = await _connectivity.checkConnectivity();
-    _updateConnectionStatus(result);
+    final results = await _connectivity.checkConnectivity();
+    _updateConnectionStatus(results);
   }
 
-  void _updateConnectionStatus(ConnectivityResult result) {
+  void _updateConnectionStatus(List<ConnectivityResult> results) {
     final wasOnline = _isOnline;
-    _isOnline = result != ConnectivityResult.none;
+    _isOnline = !_isOffline(results);
     
     if (wasOnline != _isOnline) {
       notifyListeners();
     }
+  }
+
+  bool _isOffline(List<ConnectivityResult> results) {
+    return results.isEmpty || results.every((result) => result == ConnectivityResult.none);
   }
 }
 

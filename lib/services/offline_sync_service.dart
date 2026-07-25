@@ -22,8 +22,8 @@ class OfflineSyncService {
     await _syncWhenOnline();
 
     _subscription?.cancel();
-    _subscription = _connectivity.onConnectivityChanged.listen((result) {
-      if (result != ConnectivityResult.none) {
+    _subscription = _connectivity.onConnectivityChanged.listen((results) {
+      if (!_isOffline(results)) {
         _syncWhenOnline();
       }
     });
@@ -32,7 +32,7 @@ class OfflineSyncService {
   Future<void> _syncWhenOnline() async {
     if (_isSyncing) return;
     final status = await _connectivity.checkConnectivity();
-    if (status == ConnectivityResult.none) return;
+    if (_isOffline(status)) return;
 
     _isSyncing = true;
     try {
@@ -88,6 +88,10 @@ class OfflineSyncService {
     }
 
     await _refreshBrowseCache();
+  }
+
+  bool _isOffline(List<ConnectivityResult> results) {
+    return results.isEmpty || results.every((result) => result == ConnectivityResult.none);
   }
 
   Future<void> _refreshBrowseCache() async {
