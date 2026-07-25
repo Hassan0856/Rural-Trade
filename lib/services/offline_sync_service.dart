@@ -13,7 +13,7 @@ class OfflineSyncService {
   OfflineSyncService._internal();
 
   final Connectivity _connectivity = Connectivity();
-  StreamSubscription<ConnectivityResult>? _subscription;
+  StreamSubscription<List<ConnectivityResult>>? _subscription;
   bool _isSyncing = false;
 
   Future<void> initialize() async {
