@@ -1,4 +1,4 @@
-# AI Village Resource Exchange Network
+# Rural Trader
 
 **A rural circular economy platform connecting villagers who have idle resources with those who need them — powered by AI matching, voice input in local languages, trust-based reviews, and offline-first sync.**
 
@@ -18,7 +18,7 @@ There is no simple way for villagers to know who has what and who needs what.
 
 ## The Solution
 
-AI Village Resource Exchange Network lets villagers:
+Rural Trader lets villagers:
 - **List** equipment, tools, or produce to rent, lend, sell, or exchange.
 - **Speak** listings using voice commands in local languages — no literacy barrier.
 - **Get matched** with nearby users through AI-powered recommendations.
@@ -88,7 +88,7 @@ AI Village Resource Exchange Network lets villagers:
 
 ```bash
 git clone <repo-url>
-cd village_exchange
+cd Rural-Trader
 flutter pub get
 ```
 
@@ -190,7 +190,7 @@ supabase/
 
 ## Impact
 
-This project targets the **Social Impact / Sustainability** track by reducing idle resource time and material waste in rural communities, while lowering the barrier to participation through voice-first, multi-language, offline-first design suited to low-connectivity, mixed-literacy environments.
+Rural Trader targets the **Social Impact / Sustainability** track by reducing idle resource time and material waste in rural communities, while lowering the barrier to participation through voice-first, multi-language, offline-first design suited to low-connectivity, mixed-literacy environments.
 
 ---
 
