@@ -25,6 +25,11 @@ class AiService {
           body: {'prompt': fullPrompt},
         );
 
+        if (res.status == 429) {
+          developer.log('[AI_SERVICE] gemini-generate quota exhausted: status=${res.status}, data=${res.data}');
+          return '__NO_RETRY__';
+        }
+
         if (res.status != 200) {
           developer.log('[AI_SERVICE] gemini-generate failed: status=${res.status}, data=${res.data}');
           return null;
@@ -40,6 +45,7 @@ class AiService {
 
       for (var attempt = 1; attempt <= 3; attempt++) {
         final result = await invokeAi();
+        if (result == '__NO_RETRY__') return null;
         if (result != null) return result;
 
         if (attempt < 3) {
