@@ -6,7 +6,6 @@ import '../providers/auth_provider.dart';
 import '../providers/notifications_provider.dart';
 import '../providers/language_provider.dart';
 import '../services/weather_service.dart';
-import '../services/ai_service.dart';
 import '../services/language_service.dart';
 import '../l10n/app_strings.dart';
 import '../widgets/offline_banner.dart';
@@ -23,7 +22,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   String? _weatherAlert;
   bool _showWeatherBanner = true;
   final WeatherService _weatherService = WeatherService();
-  final AiService _aiService = AiService();
 
   @override
   void initState() {
@@ -87,7 +85,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       if (produceCount == 0) return;
 
       // Generate AI alert
-      final alert = await _aiService.demandForecastAlert(
+      final alert = await _weatherService.demandForecastAlert(
         produceListingCount: produceCount,
         languageCode: languageProvider.language,
       );

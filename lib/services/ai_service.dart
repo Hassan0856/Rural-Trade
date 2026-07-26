@@ -38,16 +38,16 @@ class AiService {
         return text.trim();
       }
 
-      // First attempt
-      var result = await invokeAi();
-      if (result != null) return result;
+      for (var attempt = 1; attempt <= 3; attempt++) {
+        final result = await invokeAi();
+        if (result != null) return result;
 
-      // Retry once after 1 second
-      await Future.delayed(const Duration(seconds: 1));
-      result = await invokeAi();
-      if (result != null) return result;
+        if (attempt < 3) {
+          final delay = attempt == 1 ? 1 : 2;
+          await Future.delayed(Duration(seconds: delay));
+        }
+      }
 
-      // Both attempts failed
       return null;
     } catch (_) {
       return null;
