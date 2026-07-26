@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:go_router/go_router.dart';
+import '../providers/language_provider.dart';
 import '../providers/onboarding_provider.dart';
 import '../l10n/app_strings.dart';
 
@@ -14,6 +15,25 @@ class OnboardingScreen extends StatefulWidget {
 class _OnboardingScreenState extends State<OnboardingScreen> {
   final PageController _pageController = PageController();
   int _currentPage = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    languageProvider.addListener(_handleLanguageChanged);
+  }
+
+  @override
+  void dispose() {
+    languageProvider.removeListener(_handleLanguageChanged);
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  void _handleLanguageChanged() {
+    if (mounted) {
+      setState(() {});
+    }
+  }
 
   List<OnboardingSlide> _slides(BuildContext context, String currentLanguage) => [
     OnboardingSlide(
@@ -30,12 +50,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     ),
   ];
 
-  @override
-  void dispose() {
-    _pageController.dispose();
-    super.dispose();
-  }
-
   Future<void> _completeOnboarding() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('onboarding_completed', true);
@@ -46,7 +60,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   void _nextPage() {
-    final slides = _slides(context, onboardingProvider.currentLanguage);
+    final currentLanguage = languageProvider.language ?? onboardingProvider.currentLanguage;
+    final slides = _slides(context, currentLanguage);
     if (_currentPage < slides.length - 1) {
       _pageController.nextPage(
         duration: const Duration(milliseconds: 300),
@@ -59,7 +74,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final currentLanguage = onboardingProvider.currentLanguage;
+    final currentLanguage = languageProvider.language ?? onboardingProvider.currentLanguage;
     final slides = _slides(context, currentLanguage);
     
     return Scaffold(

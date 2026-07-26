@@ -34,6 +34,7 @@ void main() async {
   final language = prefs.getString('app_language');
   if (language != null) {
     languageProvider.setLanguage(language);
+    onboardingProvider.setCurrentLanguage(language);
   }
   
   // Wrap Supabase initialization in 5-second timeout

@@ -7,8 +7,10 @@ import '../providers/notifications_provider.dart';
 import '../providers/language_provider.dart';
 import '../services/weather_service.dart';
 import '../services/ai_service.dart';
+import '../services/language_service.dart';
 import '../l10n/app_strings.dart';
 import '../widgets/offline_banner.dart';
+import '../widgets/language_picker_sheet.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -26,10 +28,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    languageProvider.addListener(_handleLanguageChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(notificationsProvider.notifier).fetchUnreadCount();
       _checkWeatherAndListings();
     });
+  }
+
+  @override
+  void dispose() {
+    languageProvider.removeListener(_handleLanguageChanged);
+    super.dispose();
+  }
+
+  void _handleLanguageChanged() {
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   Future<void> _checkWeatherAndListings() async {
@@ -99,7 +114,28 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           IconButton(
             icon: const Icon(Icons.language),
             tooltip: 'Change language',
-            onPressed: () => context.push('/language-select?returnTo=/home'),
+            onPressed: () async {
+              await showModalBottomSheet<void>(
+                context: context,
+                isScrollControlled: true,
+                shape: const RoundedRectangleBorder(
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                ),
+                builder: (sheetContext) {
+                  return LanguagePickerSheet(
+                    onLanguageSelected: (languageCode) async {
+                      final languageService = LanguageService();
+                      await languageService.setLanguage(languageCode);
+                      languageProvider.setLanguage(languageCode);
+                      if (!mounted) return;
+                      if (sheetContext.mounted) {
+                        Navigator.of(sheetContext).pop();
+                      }
+                    },
+                  );
+                },
+              );
+            },
           ),
           IconButton(
             icon: Badge(

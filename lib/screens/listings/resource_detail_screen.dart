@@ -28,6 +28,10 @@ class _ResourceDetailScreenState extends State<ResourceDetailScreen> {
   bool _isShowingSavedDetail = false;
   String? _matchExplanation;
   String? _trustSummary;
+  bool _isMatchExplanationLoading = false;
+  bool _isTrustSummaryLoading = false;
+  bool _hasLoadedMatchExplanation = false;
+  bool _hasLoadedTrustSummary = false;
   final AiService _aiService = AiService();
   final Connectivity _connectivity = Connectivity();
 
@@ -142,15 +146,23 @@ class _ResourceDetailScreenState extends State<ResourceDetailScreen> {
 
       // Generate AI trust summary
       if (mounted) {
+        if (!mounted) return;
+        setState(() {
+          _isTrustSummaryLoading = true;
+        });
         final trustResult = await _aiService.trustSummary(
           ratingAvg: averageRating,
           ratingCount: reviewCount,
           complaintCount: complaintCount,
           languageCode: languageProvider.language,
         );
-        if (trustResult != null) {
+        if (mounted) {
           setState(() {
-            _trustSummary = trustResult;
+            _isTrustSummaryLoading = false;
+            _hasLoadedTrustSummary = true;
+            if (trustResult != null) {
+              _trustSummary = trustResult;
+            }
           });
         }
       }
@@ -171,15 +183,23 @@ class _ResourceDetailScreenState extends State<ResourceDetailScreen> {
           .limit(5);
 
       if (requestsResponse.isNotEmpty && mounted) {
+        if (!mounted) return;
+        setState(() {
+          _isMatchExplanationLoading = true;
+        });
         final nearbyRequests = List<Map<String, dynamic>>.from(requestsResponse);
         final matchResult = await _aiService.matchExplanation(
           listing: _listing!,
           nearbyRequests: nearbyRequests,
           languageCode: languageProvider.language,
         );
-        if (matchResult != null) {
+        if (mounted) {
           setState(() {
-            _matchExplanation = matchResult;
+            _isMatchExplanationLoading = false;
+            _hasLoadedMatchExplanation = true;
+            if (matchResult != null) {
+              _matchExplanation = matchResult;
+            }
           });
         }
       }
@@ -612,7 +632,7 @@ class _ResourceDetailScreenState extends State<ResourceDetailScreen> {
                   const SizedBox(height: 24),
 
                   // AI Match Explanation Card
-                  if (_matchExplanation != null)
+                  if (_isMatchExplanationLoading || _matchExplanation != null)
                     Card(
                       color: Colors.blue.shade50,
                       child: Padding(
@@ -635,19 +655,28 @@ class _ResourceDetailScreenState extends State<ResourceDetailScreen> {
                               ],
                             ),
                             const SizedBox(height: 8),
-                            Text(
-                              _matchExplanation!,
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: Colors.blue.shade900,
-                                height: 1.4,
-                              ),
-                            ),
+                            if (_isMatchExplanationLoading)
+                              const SizedBox(
+                                height: 16,
+                                width: 16,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            else if (_matchExplanation != null)
+                              Text(
+                                _matchExplanation!,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: Colors.blue.shade900,
+                                  height: 1.4,
+                                ),
+                              )
+                            else if (_hasLoadedMatchExplanation)
+                              const Text('Unable to generate a match explanation right now.'),
                           ],
                         ),
                       ),
                     ),
-                  if (_matchExplanation != null) const SizedBox(height: 24),
+                  if (_isMatchExplanationLoading || _matchExplanation != null || _hasLoadedMatchExplanation) const SizedBox(height: 24),
 
                   // Owner Info
                   Container(
@@ -773,15 +802,29 @@ class _ResourceDetailScreenState extends State<ResourceDetailScreen> {
                         const SizedBox(height: 8),
                         
                         // AI Trust Summary
-                        if (_trustSummary != null)
-                          Text(
-                            _trustSummary!,
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey.shade700,
-                              fontStyle: FontStyle.italic,
-                            ),
-                          ),
+                        if (_isTrustSummaryLoading || _trustSummary != null || _hasLoadedTrustSummary)
+                          _isTrustSummaryLoading
+                              ? const Padding(
+                                  padding: EdgeInsets.symmetric(vertical: 8),
+                                  child: SizedBox(
+                                    height: 16,
+                                    width: 16,
+                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                  ),
+                                )
+                              : _trustSummary != null
+                                  ? Text(
+                                      _trustSummary!,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey.shade700,
+                                        fontStyle: FontStyle.italic,
+                                      ),
+                                    )
+                                  : const Text(
+                                      'Unable to generate a trust summary right now.',
+                                      style: TextStyle(fontSize: 12),
+                                    ),
                       ],
                     ),
                   ),

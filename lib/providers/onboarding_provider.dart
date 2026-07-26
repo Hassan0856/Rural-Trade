@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'language_provider.dart';
 import '../services/language_service.dart';
 import '../services/auth_service.dart';
 
@@ -33,9 +34,9 @@ class OnboardingState extends ChangeNotifier {
     // Load saved language preference
     final languageService = LanguageService();
     final savedLanguage = await languageService.getLanguage();
-    if (savedLanguage != null) {
-      _currentLanguage = savedLanguage;
-    }
+    final initialLanguage = savedLanguage ?? 'en';
+    _currentLanguage = initialLanguage;
+    languageProvider.setLanguage(initialLanguage);
     
     _initAuthListener();
     await _restoreSessionAndCheckProfile();
@@ -121,6 +122,7 @@ class OnboardingState extends ChangeNotifier {
 
   void setCurrentLanguage(String languageCode) {
     _currentLanguage = languageCode;
+    languageProvider.setLanguage(languageCode);
     notifyListeners();
   }
 

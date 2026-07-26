@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../services/language_service.dart';
 import '../l10n/app_strings.dart';
+import '../providers/language_provider.dart';
 import '../providers/onboarding_provider.dart';
+import '../widgets/language_picker_sheet.dart';
 
 class WelcomeScreen extends StatefulWidget {
   const WelcomeScreen({super.key});
@@ -12,8 +15,26 @@ class WelcomeScreen extends StatefulWidget {
 
 class _WelcomeScreenState extends State<WelcomeScreen> {
   @override
+  void initState() {
+    super.initState();
+    languageProvider.addListener(_handleLanguageChanged);
+  }
+
+  @override
+  void dispose() {
+    languageProvider.removeListener(_handleLanguageChanged);
+    super.dispose();
+  }
+
+  void _handleLanguageChanged() {
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final currentLanguage = onboardingProvider.currentLanguage;
+    final currentLanguage = languageProvider.language ?? onboardingProvider.currentLanguage;
     
     return Scaffold(
       body: SafeArea(
@@ -28,7 +49,28 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                 child: IconButton(
                   icon: const Icon(Icons.language),
                   color: Colors.green,
-                  onPressed: () => context.push('/language-select?returnTo=/welcome'),
+                  onPressed: () async {
+                    await showModalBottomSheet<void>(
+                      context: context,
+                      isScrollControlled: true,
+                      shape: const RoundedRectangleBorder(
+                        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                      ),
+                      builder: (sheetContext) {
+                        return LanguagePickerSheet(
+                          onLanguageSelected: (languageCode) async {
+                            final languageService = LanguageService();
+                            await languageService.setLanguage(languageCode);
+                            onboardingProvider.setCurrentLanguage(languageCode);
+                            if (!mounted) return;
+                            if (sheetContext.mounted) {
+                              Navigator.of(sheetContext).pop();
+                            }
+                          },
+                        );
+                      },
+                    );
+                  },
                   tooltip: 'Change language',
                 ),
               ),
