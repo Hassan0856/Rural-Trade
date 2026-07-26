@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
 import '../providers/impact_stats_provider.dart';
+import '../providers/language_provider.dart';
+import '../l10n/app_strings.dart';
 
 class ImpactStatsScreen extends ConsumerStatefulWidget {
   const ImpactStatsScreen({super.key});
@@ -46,6 +48,7 @@ Together, we're building stronger village communities!
   @override
   Widget build(BuildContext context) {
     final statsState = ref.watch(impactStatsProvider);
+    final currentLanguage = languageProvider.language ?? 'en';
 
     ref.listen<ImpactStatsState>(impactStatsProvider, (previous, next) {
       if (next.errorMessage != null) {
@@ -58,7 +61,7 @@ Together, we're building stronger village communities!
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Community Impact'),
+        title: Text(AppStrings.t('impact_stats_title', currentLanguage)),
         actions: [
           IconButton(
             icon: const Icon(Icons.share),
@@ -72,9 +75,9 @@ Together, we're building stronger village communities!
         child: Column(
           children: [
             const SizedBox(height: 16),
-            const Text(
-              'Our Collective Impact',
-              style: TextStyle(
+            Text(
+              AppStrings.t('impact_stats_title', currentLanguage),
+              style: const TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
               ),
@@ -121,6 +124,7 @@ Together, we're building stronger village communities!
                 totalListings: statsState.totalListings,
                 totalRequestsFulfilled: statsState.totalRequestsFulfilled,
                 idleHoursSaved: statsState.idleHoursSaved,
+                currentLanguage: currentLanguage,
                 onShare: _shareStats,
               ),
             
@@ -137,12 +141,14 @@ class _ImpactCard extends StatelessWidget {
   final int totalListings;
   final int totalRequestsFulfilled;
   final int idleHoursSaved;
+  final String currentLanguage;
   final VoidCallback onShare;
 
   const _ImpactCard({
     required this.totalListings,
     required this.totalRequestsFulfilled,
     required this.idleHoursSaved,
+    required this.currentLanguage,
     required this.onShare,
   });
 
@@ -196,21 +202,21 @@ class _ImpactCard extends StatelessWidget {
               
               _StatRow(
                 icon: Icons.list_alt,
-                label: 'Listings Shared',
+                label: AppStrings.t('impact_listings_shared', currentLanguage),
                 value: totalListings.toString(),
               ),
               const SizedBox(height: 24),
               
               _StatRow(
                 icon: Icons.check_circle,
-                label: 'Requests Fulfilled',
+                label: AppStrings.t('impact_requests_fulfilled', currentLanguage),
                 value: totalRequestsFulfilled.toString(),
               ),
               const SizedBox(height: 24),
               
               _StatRow(
                 icon: Icons.access_time,
-                label: 'Idle Hours Saved',
+                label: AppStrings.t('impact_idle_hours_saved', currentLanguage),
                 value: '$idleHoursSaved hrs',
               ),
               

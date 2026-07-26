@@ -23,6 +23,16 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              Align(
+                alignment: Alignment.topRight,
+                child: IconButton(
+                  icon: const Icon(Icons.language),
+                  color: Colors.green,
+                  onPressed: () => context.push('/language-select?returnTo=/welcome'),
+                  tooltip: 'Change language',
+                ),
+              ),
+              const SizedBox(height: 16),
               const Icon(
                 Icons.swap_horiz,
                 size: 80,
@@ -48,7 +58,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
               ),
               const SizedBox(height: 48),
               ElevatedButton(
-                onPressed: () => context.go('/language-select'),
+                onPressed: () => context.go('/onboarding'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.green,
                   foregroundColor: Colors.white,

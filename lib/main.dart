@@ -135,7 +135,9 @@ class MyApp extends ConsumerWidget {
         ),
         GoRoute(
           path: '/language-select',
-          builder: (context, state) => const LanguageSelectScreen(),
+          builder: (context, state) => LanguageSelectScreen(
+            returnTo: state.uri.queryParameters['returnTo'],
+          ),
         ),
         GoRoute(
           path: '/onboarding',

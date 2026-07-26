@@ -37,6 +37,7 @@ class OfflineSyncService {
     _isSyncing = true;
     try {
       await _processPendingListings();
+      await _processPendingRequests();
     } finally {
       _isSyncing = false;
     }
@@ -88,6 +89,29 @@ class OfflineSyncService {
     }
 
     await _refreshBrowseCache();
+  }
+
+  Future<void> _processPendingRequests() async {
+    final pendingRequests = await LocalDatabase().getPendingRequests();
+    if (pendingRequests.isEmpty) return;
+
+    for (final row in pendingRequests) {
+      final id = row['id'] as int;
+      final listingId = row['listing_id'] as String;
+      final requesterId = row['requester_id'] as String;
+
+      try {
+        await SupabaseService.client.from('requests').insert({
+          'requester_id': requesterId,
+          'listing_id': listingId,
+          'status': 'pending',
+        });
+
+        await LocalDatabase().deletePendingRequest(id);
+      } catch (e) {
+        return;
+      }
+    }
   }
 
   bool _isOffline(List<ConnectivityResult> results) {

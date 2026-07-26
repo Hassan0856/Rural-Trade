@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../services/local_database.dart';
 import '../../services/supabase_service.dart';
 import '../../services/ai_service.dart';
 import '../../models/listing_enums.dart';
@@ -23,9 +25,11 @@ class _ResourceDetailScreenState extends State<ResourceDetailScreen> {
   Map<String, dynamic>? _ownerRating;
   Map<String, dynamic>? _listing;
   bool _isLoading = true;
+  bool _isShowingSavedDetail = false;
   String? _matchExplanation;
   String? _trustSummary;
   final AiService _aiService = AiService();
+  final Connectivity _connectivity = Connectivity();
 
   // Earthy color palette
   static const Color _earthBrown = Color(0xFF8B5A2B);
@@ -42,6 +46,12 @@ class _ResourceDetailScreenState extends State<ResourceDetailScreen> {
 
   Future<void> _fetchListing() async {
     try {
+      final status = await _connectivity.checkConnectivity();
+      if (_isOffline(status)) {
+        await _loadCachedListing();
+        return;
+      }
+
       final response = await SupabaseService.client
           .from('listings')
           .select('*')
@@ -51,22 +61,35 @@ class _ResourceDetailScreenState extends State<ResourceDetailScreen> {
       if (response != null && mounted) {
         setState(() {
           _listing = response;
+          _isShowingSavedDetail = false;
           _isLoading = false;
         });
         _checkIfAlreadyRequested();
         _fetchOwnerData();
         _fetchMatchExplanation();
-      } else if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
+      } else {
+        await _loadCachedListing();
       }
     } catch (e) {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
+      await _loadCachedListing();
+    }
+  }
+
+  Future<void> _loadCachedListing() async {
+    final cachedListing = await LocalDatabase().getCachedListingById(widget.listingId);
+    if (cachedListing != null && mounted) {
+      setState(() {
+        _listing = cachedListing;
+        _isShowingSavedDetail = true;
+        _trustSummary = null;
+        _matchExplanation = null;
+        _isLoading = false;
+      });
+      _checkIfAlreadyRequested();
+    } else if (mounted) {
+      setState(() {
+        _isLoading = false;
+      });
     }
   }
 
@@ -198,6 +221,16 @@ class _ResourceDetailScreenState extends State<ResourceDetailScreen> {
     return _listing!['owner_id'] == currentUserId;
   }
 
+  bool _isOffline(dynamic results) {
+    if (results is ConnectivityResult) {
+      return results == ConnectivityResult.none;
+    }
+    if (results is List<ConnectivityResult>) {
+      return results.isEmpty || results.every((result) => result == ConnectivityResult.none);
+    }
+    return true;
+  }
+
   Future<void> _checkIfAlreadyRequested() async {
     if (_listing == null) return;
     
@@ -227,6 +260,8 @@ class _ResourceDetailScreenState extends State<ResourceDetailScreen> {
   Future<void> _requestResource() async {
     if (_listing == null) return;
 
+    final connectivityResult = await _connectivity.checkConnectivity();
+      final isOffline = _isOffline(connectivityResult);
     // Read requester_id live from auth at the moment of tap — not from cache.
     final currentUser = Supabase.instance.client.auth.currentUser;
     if (currentUser == null) {
@@ -243,6 +278,25 @@ class _ResourceDetailScreenState extends State<ResourceDetailScreen> {
     setState(() {
       _isRequesting = true;
     });
+
+    if (isOffline) {
+      await LocalDatabase().addPendingRequest(
+        listingId: _listing!['id'] as String,
+        requesterId: requesterId,
+      );
+
+      if (mounted) {
+        setState(() {
+          _isRequesting = false;
+          _hasRequested = true;
+        });
+        _showSuccessToast('Request queued locally and will send when you are back online.');
+        if (Navigator.canPop(context)) {
+          Navigator.of(context).pop();
+        }
+      }
+      return;
+    }
 
     try {
       await SupabaseService.client.from('requests').insert({
@@ -398,6 +452,24 @@ class _ResourceDetailScreenState extends State<ResourceDetailScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            if (_isShowingSavedDetail)
+              Container(
+                width: double.infinity,
+                color: Colors.yellow.shade100,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                child: Row(
+                  children: [
+                    const Icon(Icons.save, color: Colors.black54, size: 18),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Showing saved details from the last successful sync.',
+                        style: const TextStyle(color: Colors.black87),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             // Full Photo
             if (photoUrl != null && photoUrl.isNotEmpty)
               Container(

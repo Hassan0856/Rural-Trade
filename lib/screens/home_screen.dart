@@ -97,6 +97,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         title: Text(AppStrings.t('nav_home', currentLanguage)),
         actions: [
           IconButton(
+            icon: const Icon(Icons.language),
+            tooltip: 'Change language',
+            onPressed: () => context.push('/language-select?returnTo=/home'),
+          ),
+          IconButton(
             icon: Badge(
               isLabelVisible: unreadCount > 0,
               label: Text(

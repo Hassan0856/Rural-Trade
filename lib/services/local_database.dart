@@ -26,7 +26,7 @@ class LocalDatabase {
 
     return await openDatabase(
       path,
-      version: 3,
+      version: 4,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -51,6 +51,16 @@ class LocalDatabase {
         created_at INTEGER NOT NULL
       )
     ''');
+
+    // Queue table for pending requests to be sent when connectivity is restored.
+    await db.execute('''
+      CREATE TABLE pending_requests (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        listing_id TEXT NOT NULL,
+        requester_id TEXT NOT NULL,
+        created_at INTEGER NOT NULL
+      )
+    ''');
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
@@ -65,6 +75,17 @@ class LocalDatabase {
     if (oldVersion < 3) {
       await db.execute('DROP TABLE IF EXISTS cached_listings');
       await _createCachedListingsTable(db);
+    }
+
+    if (oldVersion < 4) {
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS pending_requests (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          listing_id TEXT NOT NULL,
+          requester_id TEXT NOT NULL,
+          created_at INTEGER NOT NULL
+        )
+      ''');
     }
   }
 
@@ -133,6 +154,18 @@ class LocalDatabase {
     return listings;
   }
 
+  Future<Map<String, dynamic>?> getCachedListingById(String listingId) async {
+    if (kIsWeb) return null;
+    final db = await database;
+    final results = await db.query(
+      'cached_listings',
+      where: 'id = ?',
+      whereArgs: [listingId],
+      limit: 1,
+    );
+    return results.isNotEmpty ? results.first : null;
+  }
+
   Future<void> clearCache() async {
     if (kIsWeb) return;
     final db = await database;
@@ -167,5 +200,30 @@ class LocalDatabase {
     if (kIsWeb) return;
     final db = await database;
     await db.delete('pending_listings', where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<int> addPendingRequest({
+    required String listingId,
+    required String requesterId,
+  }) async {
+    if (kIsWeb) return -1;
+    final db = await database;
+    return await db.insert('pending_requests', {
+      'listing_id': listingId,
+      'requester_id': requesterId,
+      'created_at': DateTime.now().millisecondsSinceEpoch,
+    });
+  }
+
+  Future<List<Map<String, dynamic>>> getPendingRequests() async {
+    if (kIsWeb) return [];
+    final db = await database;
+    return await db.query('pending_requests', orderBy: 'created_at ASC');
+  }
+
+  Future<void> deletePendingRequest(int id) async {
+    if (kIsWeb) return;
+    final db = await database;
+    await db.delete('pending_requests', where: 'id = ?', whereArgs: [id]);
   }
 }

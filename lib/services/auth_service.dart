@@ -39,7 +39,13 @@ class AuthService {
 
   static const String demoOtp = '123456';
   static const String _emailDomain = 'village-exchange.app';
-  static const String _profileCompletedKey = 'profile_completed';
+
+  // Scoped per user id — a flat/global key would mean "User A completed
+  // setup" incorrectly answers "is User B's profile complete?" the next
+  // time a different account signs in on the same physical device. This
+  // was a real bug: it caused profile setup to be silently skipped for
+  // every user after the first one tested on a given phone.
+  static String _profileCompletedKey(String uid) => 'profile_completed_$uid';
 
   static String normalisePhone(String input) {
     var digits = input.replaceAll(RegExp(r'[^0-9]'), '');
@@ -187,19 +193,20 @@ class AuthService {
     final uid = _client.auth.currentUser?.id;
     if (uid == null) throw AuthException('No active session.');
 
-    await _client.from('users').update({
+    final updateData = <String, dynamic>{
       'name': name.trim(),
       'village': village.trim(),
-      // Omit entirely when off — never write 0.0, a real Gulf-of-Guinea
-      // coordinate that would wreck the distance sort.
-      ...?(lat != null ? {'location_lat': lat} : null),
-      ...?(lng != null ? {'location_lng': lng} : null),
-    }).eq('id', uid);
+    };
+    // Omit entirely when off — never write 0.0, a real Gulf-of-Guinea
+    // coordinate that would wreck the distance sort.
+    if (lat != null) updateData['location_lat'] = lat;
+    if (lng != null) updateData['location_lng'] = lng;
 
-    // Fast path for every future check on this device — see
-    // checkProfileComplete() below.
+    await _client.from('users').update(updateData).eq('id', uid);
+
+    // Fast path for future checks — see checkProfileComplete() below.
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_profileCompletedKey, true);
+    await prefs.setBool(_profileCompletedKey(uid), true);
   }
 
   /// The single source of truth for routing after sign-in. Call this
@@ -212,13 +219,13 @@ class AuthService {
   ///            show a "couldn't verify your account, tap to retry" state
   ///            and call this again when the user retries.
   Future<bool?> checkProfileComplete() async {
-    final prefs = await SharedPreferences.getInstance();
-    if (prefs.getBool(_profileCompletedKey) == true) {
-      return true; // no network call — immune to the JWT flakiness
-    }
-
     final uid = _client.auth.currentUser?.id;
     if (uid == null) return false;
+
+    final prefs = await SharedPreferences.getInstance();
+    if (prefs.getBool(_profileCompletedKey(uid)) == true) {
+      return true; // no network call — immune to the JWT flakiness
+    }
 
     for (var attempt = 0; attempt < 3; attempt++) {
       try {
@@ -236,7 +243,7 @@ class AuthService {
             row['village'] != 'Unknown';
 
         if (complete) {
-          await prefs.setBool(_profileCompletedKey, true);
+          await prefs.setBool(_profileCompletedKey(uid), true);
         }
         return complete;
       } catch (_) {

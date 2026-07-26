@@ -5,7 +5,9 @@ import '../providers/language_provider.dart';
 import '../providers/onboarding_provider.dart';
 
 class LanguageSelectScreen extends StatelessWidget {
-  const LanguageSelectScreen({super.key});
+  final String? returnTo;
+
+  const LanguageSelectScreen({super.key, this.returnTo});
 
   @override
   Widget build(BuildContext context) {
@@ -43,7 +45,11 @@ class LanguageSelectScreen extends StatelessWidget {
                       onboardingProvider.setLanguageSelected(true);
                       onboardingProvider.setCurrentLanguage(entry.key);
                       if (context.mounted) {
-                        context.go('/onboarding');
+                        if (returnTo != null && returnTo!.isNotEmpty) {
+                          context.go(returnTo!);
+                        } else {
+                          context.go('/onboarding');
+                        }
                       }
                     },
                     style: ElevatedButton.styleFrom(

@@ -22,9 +22,9 @@ class AppStrings {
   static const Map<String, Map<String, String>> _strings = {
     // ---------- Welcome / Register / Login ----------
     'welcome_title': {
-      'en': 'Welcome to Rural Trader',
-      'hi': 'ग्रामीण व्यापारी में आपका स्वागत है',
-      'te': 'గ్రామీణ వ్యాపారికి స్వాగతం',
+      'en': 'Welcome to Village Exchange',
+      'hi': 'विलेज एक्सचेंज में आपका स्वागत है',
+      'te': 'విలేజ్ ఎక్స్ఛేంజ్‌కి స్వాగతం',
     },
     'welcome_subtitle': {
       'en': 'New here, or already have an account?',
@@ -166,9 +166,9 @@ class AppStrings {
 
     // ---------- Home ----------
     'home_welcome_title': {
-      'en': 'Welcome to Rural Trader!',
-      'hi': 'ग्रामीण व्यापारी में आपका स्वागत है!',
-      'te': 'గ్రామీణ వ్యాపారికి స్వాగతం!',
+      'en': 'Welcome to Village Exchange!',
+      'hi': 'विलेज एक्सचेंज में आपका स्वागत है!',
+      'te': 'విలేజ్ ఎక్స్ఛేంజ్‌కి స్వాగతం!',
     },
     'home_logged_in_subtitle': {
       'en': 'You are now logged in',
@@ -277,26 +277,6 @@ class AppStrings {
       'hi': 'अदला-बदली',
       'te': 'మార్పిడి',
     },
-    'add_listing_exchange_type_label': {
-      'en': 'Exchange Type',
-      'hi': 'विनिमय प्रकार',
-      'te': 'మార్పిడి రకం',
-    },
-    'add_listing_title_required': {
-      'en': 'Please enter a title',
-      'hi': 'कृपया एक शीर्षक दर्ज करें',
-      'te': 'దయచేసి ఓ శీర్షికను నమోదు చేయండి',
-    },
-    'add_listing_description_required': {
-      'en': 'Please enter a description',
-      'hi': 'कृपया एक विवरण दर्ज करें',
-      'te': 'దయచేసి వివరణ నమోదు చేయండి',
-    },
-    'add_listing_location_required': {
-      'en': 'Please capture your location',
-      'hi': 'कृपया अपना स्थान कैप्चर करें',
-      'te': 'దయచేసి మీ లొకేషన్‌ను క్యాప్చర్ చేయండి',
-    },
     'add_listing_photo_label': {
       'en': 'Photo',
       'hi': 'फ़ोटो',
@@ -316,16 +296,6 @@ class AppStrings {
       'en': 'Location',
       'hi': 'स्थान',
       'te': 'లొకేషన్',
-    },
-    'add_listing_location_not_captured': {
-      'en': 'Location not captured',
-      'hi': 'स्थान रिकॉर्ड नहीं किया गया',
-      'te': 'లోకేషన్ క్యాప్చర్ చేయబడలేదు',
-    },
-    'add_listing_offline_queue_unsupported': {
-      'en': 'Offline queueing is not supported on web. Please reconnect to submit your listing.',
-      'hi': 'वेब पर ऑफ़लाइन कतारबद्ध करना समर्थित नहीं है। कृपया अपनी लिस्टिंग सबमिट करने के लिए फिर से कनेक्ट करें।',
-      'te': 'వెబ్‌లో ఆఫ్లైన్ క్యూ చేయడం మద్దతు ఇవ్వబడదు. దయచేసి మీ లిస్టింగ్‌ను సమర్పించడానికి మళ్ళీ కనెక్ట్ అవ్వండి.',
     },
     'add_listing_capture_location': {
       'en': 'Capture Current Location',
@@ -354,25 +324,10 @@ class AppStrings {
       'hi': 'मालिक',
       'te': 'యజమాని',
     },
-    'detail_unknown_owner': {
-      'en': 'Unknown Owner',
-      'hi': 'अज्ञात मालिक',
-      'te': 'తెలియని యజమాని',
-    },
     'detail_request_button': {
       'en': 'Request This',
       'hi': 'यह अनुरोध करें',
       'te': 'దీన్ని అభ్యర్థించండి',
-    },
-    'detail_request_sent': {
-      'en': 'Request Sent',
-      'hi': 'अनुरोध भेजा गया',
-      'te': 'అభ్యర్థన పంపబడింది',
-    },
-    'detail_own_listing_message': {
-      'en': 'This is your listing',
-      'hi': 'यह आपकी लिस्टिंग है',
-      'te': 'ఇది మీ లిస్టింగ్',
     },
     'detail_request_note': {
       'en': "By requesting, you'll be connected with the owner to arrange the exchange.",
@@ -383,56 +338,6 @@ class AppStrings {
       'en': 'Why this might be a good match',
       'hi': 'यह एक अच्छा मिलान क्यों हो सकता है',
       'te': 'ఇది మంచి మ్యాచ్ ఎందుకు కావచ్చు',
-    },
-    'status_unavailable': {
-      'en': 'Unavailable',
-      'hi': 'उपलब्ध नहीं',
-      'te': 'అందుబాటులో లేదు',
-    },
-    'detail_trades_suffix': {
-      'en': 'trades',
-      'hi': 'व्यापार',
-      'te': 'లావాదేవీలు',
-    },
-    'browse_saved_offline': {
-      'en': 'Showing saved listings while offline',
-      'hi': 'ऑफलाइन रहते हुए सहेजी गई लिस्टिंग दिखाई जा रही हैं',
-      'te': 'ఆఫ్లీన్ సమయంలో సేవ్ చేసిన లిస్టింగ్స్ చూపించబడుతున్నాయి',
-    },
-    'browse_loading_message': {
-      'en': 'Finding nearby listings...',
-      'hi': 'पास की लिस्टिंग खोज रहे हैं...',
-      'te': 'సమీప లిస్టింగ్స్‌ను వెతుకుతున్నాము...',
-    },
-    'browse_error_title': {
-      'en': 'Failed to load resources',
-      'hi': 'संसाधन लोड करने में विफल',
-      'te': 'వనరులను లోడ్ చేయలేకపోయాం',
-    },
-    'browse_try_again_button': {
-      'en': 'Try Again',
-      'hi': 'फिर प्रयास करें',
-      'te': 'మళ్లీ ప్రయత్నించండి',
-    },
-    'browse_unknown_error': {
-      'en': 'An unknown error occurred',
-      'hi': 'एक अज्ञात त्रुटि हुई',
-      'te': 'ఒక తెలియని లోపం సంభవించింది',
-    },
-    'browse_empty_title': {
-      'en': 'No listings found',
-      'hi': 'कोई लिस्टिंग नहीं मिली',
-      'te': 'ఎవరూ లిస్టింగ్స్ కనబడలేదు',
-    },
-    'browse_empty_all_message': {
-      'en': 'No listings are available right now. Add one to share with your village or check back soon.',
-      'hi': 'इस समय कोई लिस्टिंग उपलब्ध नहीं है। साझा करने के लिए एक जोड़ें या बाद में फिर से जांचें।',
-      'te': 'ప్రస్తుతం ఎలాంటి లిస్టింగ్‌లు అందుబాటులో లేవు. మీ గ్రామానికి పంచుకోవడానికి ఒకదాన్ని జోడించండి లేదా త్వరలో మళ్లీ తనిఖీ చేయండి.',
-    },
-    'browse_empty_filter_message': {
-      'en': 'Try adjusting your filters to find what you need.',
-      'hi': 'अपनी फ़िल्टर सेटिंग्स समायोजित करके देखें.',
-      'te': 'మీ ఫిల్టర్లను సర్దుబాటు చేసి మీరు కావలసినది కనుగొనండి.',
     },
 
     // ---------- My Trades ----------
@@ -496,95 +401,27 @@ class AppStrings {
       'hi': 'समस्या की रिपोर्ट करें',
       'te': 'సమస్యను నివేదించండి',
     },
-    'trades_to_label': {
-      'en': 'To:',
-      'hi': 'को:',
-      'te': 'కు:',
+
+    // ---------- Impact Stats ----------
+    'impact_stats_title': {
+      'en': 'Impact Stats',
+      'hi': 'प्रभाव आँकड़े',
+      'te': 'ప్రభావ గణాంకాలు',
     },
-    'trades_from_label': {
-      'en': 'From:',
-      'hi': 'से:',
-      'te': 'నుండి:',
+    'impact_listings_shared': {
+      'en': 'Listings Shared',
+      'hi': 'साझा की गई लिस्टिंग',
+      'te': 'పంచుకున్న లిస్టింగ్‌లు',
     },
-    'trades_review_dialog_title': {
-      'en': 'Leave a Review',
-      'hi': 'समीक्षा दें',
-      'te': 'సమీక్ష ఇవ్వండి',
+    'impact_requests_fulfilled': {
+      'en': 'Requests Fulfilled',
+      'hi': 'पूर्ण किए गए अनुरोध',
+      'te': 'పూర్తయిన అభ్యర్థనలు',
     },
-    'trades_review_dialog_prompt': {
-      'en': 'Rate your experience with',
-      'hi': 'अपने अनुभव का मूल्यांकन करें',
-      'te': 'మీ అనుభవాన్ని రేట్ చేయండి',
-    },
-    'trades_review_comment_hint': {
-      'en': 'Comment (optional)',
-      'hi': 'टिप्पणी (वैकल्पिक)',
-      'te': 'వ్యాఖ్య (ఐచ్ఛిక)',
-    },
-    'trades_review_cancel_button': {
-      'en': 'Cancel',
-      'hi': 'रद्द करें',
-      'te': 'రద్దు చేయండి',
-    },
-    'trades_review_submit_button': {
-      'en': 'Submit Review',
-      'hi': 'समीक्षा सबमिट करें',
-      'te': 'సమీక్ష పంపండి',
-    },
-    'trades_review_submitted_message': {
-      'en': 'Review submitted — trust scores will update on refresh',
-      'hi': 'समीक्षा सबमिट की गई — विश्वास स्कोर ताज़ा करने पर अपडेट होंगे',
-      'te': 'సమీక్ష సమర్పించబడింది — నమ్మక స్కోర్లు రిఫ్రెష్‌పై నవీకరించబడతాయి',
-    },
-    'trades_report_issue_title': {
-      'en': 'Report an Issue',
-      'hi': 'समस्या की रिपोर्ट करें',
-      'te': 'సమస్యని నివేదించండి',
-    },
-    'trades_report_issue_category_label': {
-      'en': 'Category',
-      'hi': 'श्रेणी',
-      'te': 'వర్గం',
-    },
-    'trades_report_issue_category_hint': {
-      'en': 'Select category',
-      'hi': 'श्रेणी चुनें',
-      'te': 'వర్గాన్ని ఎంచుకోండి',
-    },
-    'trades_report_issue_description_label': {
-      'en': 'Description',
-      'hi': 'विवरण',
-      'te': 'వివరణ',
-    },
-    'trades_report_issue_submit_button': {
-      'en': 'Submit Report',
-      'hi': 'रिपोर्ट सबमिट करें',
-      'te': 'నివేదిక సమర్పించండి',
-    },
-    'trades_report_issue_submitted_message': {
-      'en': 'Report submitted — trust scores will update on refresh',
-      'hi': 'रिपोर्ट सबमिट की गई — विश्वास स्कोर ताज़ा करने पर अपडेट होंगे',
-      'te': 'రిపోర్ట్ సమర్పించబడింది — నమ్మక స్కోర్లు రిఫ్రెష్‌పై నవీకరించబడతాయి',
-    },
-    'trades_issue_damaged': {
-      'en': 'Damaged',
-      'hi': 'क्षतिग्रस्त',
-      'te': 'పగులైనది',
-    },
-    'trades_issue_stolen': {
-      'en': 'Stolen',
-      'hi': 'चोरी',
-      'te': 'దొంగతనం',
-    },
-    'trades_issue_no_show': {
-      'en': 'No-show',
-      'hi': 'नॉन-शो',
-      'te': 'నో-షో',
-    },
-    'trades_issue_other': {
-      'en': 'Other',
-      'hi': 'अन्य',
-      'te': 'ఇతర',
+    'impact_idle_hours_saved': {
+      'en': 'Idle Hours Saved',
+      'hi': 'बचाए गए निष्क्रिय घंटे',
+      'te': 'ఆదా చేసిన నిష్క్రియ గంటలు',
     },
 
     // ---------- Notifications ----------
